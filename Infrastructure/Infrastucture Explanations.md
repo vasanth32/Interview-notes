@@ -1,3 +1,467 @@
+# Kubernetes Infrastructure Explanations
+
+---
+
+# POC-5: AKS Deployment per Service - Infrastructure Explanation
+
+## Overview
+
+POC-5 is your **first real Kubernetes deployment**. This phase teaches you how to package and deploy microservices to Azure Kubernetes Service (AKS) using Kubernetes manifests (YAML files). You'll learn the fundamental Kubernetes resources needed to run applications in production.
+
+---
+
+## What is Kubernetes? (Beginner's Guide)
+
+Think of Kubernetes as a **smart container orchestrator**:
+
+- **Without Kubernetes**: You manually run Docker containers on servers, manage networking, handle failures, scale manually
+- **With Kubernetes**: You declare what you want (e.g., "run 2 copies of my app"), and Kubernetes handles the rest automatically
+
+### Key Kubernetes Concepts
+
+#### **1. Pod**
+- **What it is**: The smallest deployable unit in Kubernetes
+- **Contains**: One or more containers (usually one)
+- **Lifecycle**: Pods are created, run, and can be destroyed/recreated
+- **Analogy**: A pod is like a "wrapper" around your container
+
+#### **2. Deployment**
+- **What it is**: A controller that manages pods
+- **Purpose**: Ensures a specified number of pod replicas are running
+- **Features**: Auto-restarts failed pods, handles updates, maintains desired state
+- **Analogy**: Deployment is like a "manager" that ensures you always have X copies of your app running
+
+#### **3. Service**
+- **What it is**: A stable network endpoint to access pods
+- **Purpose**: Provides a consistent way to reach your application
+- **Problem it solves**: Pods have temporary IPs that change; Services provide a stable address
+- **Types**: ClusterIP (internal), LoadBalancer (external), NodePort
+- **Analogy**: Service is like a "phone number" that always works, even if you change phones (pods)
+
+#### **4. ConfigMap**
+- **What it is**: Stores non-sensitive configuration data
+- **Purpose**: Separates configuration from application code
+- **Contains**: Environment variables, config files, URLs, feature flags
+- **Analogy**: ConfigMap is like a "settings file" you can change without rebuilding your app
+
+#### **5. Secret**
+- **What it is**: Stores sensitive data (encrypted at rest)
+- **Purpose**: Securely stores passwords, connection strings, API keys
+- **Contains**: Database passwords, TLS certificates, API tokens
+- **Analogy**: Secret is like a "locked safe" for sensitive information
+
+#### **6. Namespace**
+- **What it is**: A virtual cluster within a Kubernetes cluster
+- **Purpose**: Organizes and isolates resources
+- **Use cases**: Separate environments (dev, staging, prod), team isolation
+- **Analogy**: Namespace is like a "folder" that groups related resources together
+
+---
+
+## What You Build in POC-5
+
+For each microservice (ProductService, OrderService, NotificationService), you create:
+
+1. **Deployment** → Runs your application containers
+2. **Service** → Provides network access to your pods
+3. **ConfigMap** → Stores application configuration
+4. **Secret** → Stores sensitive data (database connections)
+
+All organized in a **namespace** called `microservices`.
+
+---
+
+## Understanding Kubernetes Manifests (YAML Files)
+
+Kubernetes uses YAML files (called "manifests") to define resources. Each file describes what you want Kubernetes to create.
+
+### Deployment Manifest Structure
+
+```yaml
+apiVersion: apps/v1          # Kubernetes API version
+kind: Deployment             # Type of resource
+metadata:                    # Identification info
+  name: productservice
+  namespace: microservices
+spec:                        # Desired state
+  replicas: 2                # Run 2 copies
+  selector:                  # How to find pods
+    matchLabels:
+      app: productservice
+  template:                  # Pod template
+    metadata:
+      labels:
+        app: productservice
+    spec:
+      containers:
+      - name: productservice
+        image: acr.azurecr.io/productservice:v1.0.0
+        ports:
+        - containerPort: 8080
+```
+
+**Key Sections Explained:**
+
+- **apiVersion**: Kubernetes API version
+- **kind**: Type of resource (Deployment, Service, ConfigMap, etc.)
+- **metadata**: Name, namespace, labels (for identification)
+- **spec**: The desired configuration (what you want)
+- **replicas**: How many pod copies to run
+- **selector**: Labels used to find and manage pods
+- **template**: The pod specification (what each pod should look like)
+
+### Service Manifest Structure
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: productservice
+  namespace: microservices
+spec:
+  type: ClusterIP           # Internal-only access
+  ports:
+  - port: 80                # Service port (external)
+    targetPort: 8080        # Pod port (internal)
+  selector:
+    app: productservice      # Routes to pods with this label
+```
+
+**How Service Works:**
+
+1. Service listens on port 80
+2. When traffic arrives, Service finds pods with label `app: productservice`
+3. Forwards traffic to pod's port 8080
+4. Load balances across multiple pods if they exist
+
+### ConfigMap Manifest Structure
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: productservice-config
+  namespace: microservices
+data:                       # Key-value pairs
+  AppSettings:ApiUrl: "https://api.example.com"
+  Logging:Level: "Information"
+```
+
+**Usage in Deployment:**
+
+```yaml
+env:
+- name: ApiUrl
+  valueFrom:
+    configMapKeyRef:
+      name: productservice-config
+      key: AppSettings:ApiUrl
+```
+
+### Secret Manifest Structure
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: productservice-secret
+  namespace: microservices
+type: Opaque
+data:                       # Base64 encoded values
+  ConnectionString: <base64-encoded-value>
+```
+
+**Important**: Secrets store base64-encoded values (not encrypted, just encoded). Always use proper secret management in production.
+
+---
+
+## Step-by-Step Deployment Process
+
+### Step 1: Create Namespace
+
+```powershell
+kubectl create namespace microservices
+```
+
+**What happens**: Kubernetes creates a logical boundary for your resources. All your microservices will live in this namespace.
+
+**Verify**:
+```powershell
+kubectl get namespaces
+```
+
+### Step 2: Apply Manifests Structure
+
+```
+infra/k8s/
+├── namespaces.yaml
+├── productservice/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── configmap.yaml
+│   └── secret.yaml
+├── orderservice/
+│   ├── deployment.yaml
+│   ├── service.yaml
+│   ├── configmap.yaml
+│   └── secret.yaml
+└── notificationservice/
+    ├── deployment.yaml
+    ├── service.yaml
+    ├── configmap.yaml
+    └── secret.yaml
+```
+
+### Step 3: Apply Resources
+
+```powershell
+# Apply namespace
+kubectl apply -f infra/k8s/namespaces.yaml
+
+# Apply each service
+kubectl apply -f infra/k8s/productservice/ -n microservices
+kubectl apply -f infra/k8s/orderservice/ -n microservices
+kubectl apply -f infra/k8s/notificationservice/ -n microservices
+```
+
+**What `kubectl apply` does**:
+- Reads YAML files
+- Creates resources if they don't exist
+- Updates resources if they already exist (declarative)
+- Applies to specified namespace (`-n microservices`)
+
+### Step 4: Verify Deployment
+
+```powershell
+# Check pods (containers)
+kubectl get pods -n microservices
+
+# Expected output:
+# NAME                              READY   STATUS    RESTARTS   AGE
+# productservice-7d8f9c4b5-abc12    1/1     Running   0          2m
+# productservice-7d8f9c4b5-xyz34    1/1     Running   0          2m
+# orderservice-6a7b8c9d0-def56      1/1     Running   0          2m
+```
+
+**Pod Status Meanings**:
+- **Running**: Pod is healthy and running
+- **Pending**: Pod is being scheduled/created
+- **CrashLoopBackOff**: Pod keeps crashing (check logs)
+- **Error**: Pod failed to start
+
+```powershell
+# Check services
+kubectl get services -n microservices
+
+# Expected output:
+# NAME              TYPE        CLUSTER-IP     EXTERNAL-IP   PORT(S)   AGE
+# productservice    ClusterIP   10.0.1.100    <none>        80/TCP    2m
+# orderservice      ClusterIP   10.0.1.101    <none>        80/TCP    2m
+```
+
+```powershell
+# Check configmaps
+kubectl get configmaps -n microservices
+
+# Check secrets (names only, values hidden)
+kubectl get secrets -n microservices
+```
+
+### Step 5: Test Your Deployment
+
+```powershell
+# Port forward to access service locally
+kubectl port-forward -n microservices svc/productservice 5000:80
+```
+
+**What this does**:
+- Creates a tunnel from your local machine (port 5000) to the Kubernetes service (port 80)
+- Allows you to test: `http://localhost:5000/health`
+
+**Access from other pods**:
+- Service name becomes a DNS name: `http://productservice:80`
+- Other services can call: `http://productservice/health`
+
+---
+
+## Key Configuration Details
+
+### Resource Limits
+
+```yaml
+resources:
+  limits:
+    cpu: 500m        # 0.5 CPU cores (maximum)
+    memory: 512Mi    # 512 MB RAM (maximum)
+  requests:
+    cpu: 250m        # 0.25 CPU cores (guaranteed)
+    memory: 256Mi    # 256 MB RAM (guaranteed)
+```
+
+**Why important**:
+- **Limits**: Prevents a pod from consuming too many resources
+- **Requests**: Ensures pod gets minimum resources needed
+- Helps Kubernetes schedule pods efficiently
+
+### Replicas
+
+```yaml
+replicas: 2
+```
+
+**Why 2 replicas**:
+- **High availability**: If one pod fails, the other continues serving
+- **Load distribution**: Traffic is split between pods
+- **Zero downtime updates**: Can update one pod while the other serves traffic
+
+### Port Mapping
+
+```yaml
+# In Deployment (container)
+ports:
+- containerPort: 8080    # Port your app listens on
+
+# In Service
+ports:
+- port: 80                # Port Service exposes
+  targetPort: 8080        # Port to forward to pod
+```
+
+**Why different ports**:
+- Container port (8080): Your application's actual port
+- Service port (80): Standard HTTP port, easier to remember
+- Kubernetes handles the mapping automatically
+
+---
+
+## Common Commands Reference
+
+### Viewing Resources
+
+```powershell
+# List all pods
+kubectl get pods -n microservices
+
+# List with more details
+kubectl get pods -n microservices -o wide
+
+# Describe a pod (detailed info)
+kubectl describe pod <pod-name> -n microservices
+
+# View pod logs
+kubectl logs <pod-name> -n microservices
+
+# Follow logs (like tail -f)
+kubectl logs -f <pod-name> -n microservices
+```
+
+### Debugging
+
+```powershell
+# Execute command in running pod
+kubectl exec -it <pod-name> -n microservices -- /bin/sh
+
+# Check events (what's happening)
+kubectl get events -n microservices --sort-by='.lastTimestamp'
+
+# View resource YAML
+kubectl get deployment productservice -n microservices -o yaml
+```
+
+### Updating Resources
+
+```powershell
+# Edit resource directly
+kubectl edit deployment productservice -n microservices
+
+# Apply updated YAML
+kubectl apply -f infra/k8s/productservice/deployment.yaml -n microservices
+
+# Delete resource
+kubectl delete deployment productservice -n microservices
+```
+
+---
+
+## Troubleshooting Common Issues
+
+### Issue 1: Pods Not Starting
+
+**Symptoms**: Pods stuck in `Pending` or `CrashLoopBackOff`
+
+**Solutions**:
+```powershell
+# Check pod status
+kubectl describe pod <pod-name> -n microservices
+
+# Check logs
+kubectl logs <pod-name> -n microservices
+
+# Common causes:
+# - Image pull errors (wrong image name/tag)
+# - Resource limits too low
+# - Configuration errors
+```
+
+### Issue 2: Cannot Access Service
+
+**Symptoms**: Port forward works but service doesn't respond
+
+**Solutions**:
+```powershell
+# Verify service exists
+kubectl get svc productservice -n microservices
+
+# Check service endpoints (which pods it routes to)
+kubectl get endpoints productservice -n microservices
+
+# Verify pod labels match service selector
+kubectl get pods -n microservices --show-labels
+```
+
+### Issue 3: Configuration Not Applied
+
+**Symptoms**: Environment variables not set correctly
+
+**Solutions**:
+```powershell
+# Check ConfigMap exists
+kubectl get configmap productservice-config -n microservices
+
+# View ConfigMap contents
+kubectl get configmap productservice-config -n microservices -o yaml
+
+# Verify deployment references ConfigMap correctly
+kubectl describe deployment productservice -n microservices
+```
+
+---
+
+## Best Practices
+
+1. **Use Namespaces**: Organize resources by environment or team
+2. **Set Resource Limits**: Prevent resource exhaustion
+3. **Use Multiple Replicas**: Ensure high availability
+4. **Separate Config from Code**: Use ConfigMaps for configuration
+5. **Secure Secrets**: Never commit secrets to Git, use proper secret management
+6. **Label Everything**: Use consistent labels for easy resource management
+7. **Version Your Images**: Use semantic versioning (v1.0.0, v1.1.0)
+
+---
+
+## Summary
+
+POC-5 teaches you the fundamentals of Kubernetes deployment:
+- ✅ Understanding core Kubernetes resources (Pods, Deployments, Services, ConfigMaps, Secrets)
+- ✅ Creating and organizing Kubernetes manifests
+- ✅ Deploying microservices to AKS
+- ✅ Verifying and testing deployments
+- ✅ Basic troubleshooting and debugging
+
+This foundation is essential before moving to advanced topics like rolling updates, health probes, and scaling.
+
+---
+
 # POC-6: Rolling Updates with Health Probes - Infrastructure Explanation
 
 ## Overview
