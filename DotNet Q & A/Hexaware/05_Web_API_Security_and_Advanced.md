@@ -493,9 +493,29 @@ services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
 
 #### 3. API Key Authentication
 
+**What is API Key Authentication?**
+API Key authentication is a simple authentication mechanism where clients include a secret key (API key) in their requests, typically in HTTP headers. This method is commonly used for:
+- Server-to-server communication
+- API access control without user authentication
+- Third-party integrations
+- Rate limiting and tracking API usage
+
+**How it works:**
+1. Client sends API key in request header (e.g., `X-API-Key`)
+2. Server validates the key against stored valid keys
+3. If valid, server creates an authenticated principal with claims
+4. If invalid or missing, request is rejected
+
+**Implementation:**
+
 ```csharp
+// Custom authentication handler that validates API keys
 public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
 {
+    // Constructor: Receives required dependencies for authentication handling
+    // - options: Configuration options for the authentication scheme
+    // - logger: For logging authentication events
+    // - encoder: URL encoder for encoding/decoding
     public ApiKeyAuthenticationHandler(
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
@@ -503,34 +523,87 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
     {
     }
     
+    // Core method: Handles the authentication process
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        // Step 1: Check if API key header exists in the request
+        // Header name: "X-API-Key" (custom header convention)
         if (!Request.Headers.TryGetValue("X-API-Key", out var apiKeyHeaderValues))
         {
+            // No API key provided - authentication fails
             return Task.FromResult(AuthenticateResult.Fail("API Key was not provided"));
         }
         
+        // Step 2: Extract the API key from header values
+        // Headers can have multiple values, so we take the first one
         var providedApiKey = apiKeyHeaderValues.FirstOrDefault();
+        
+        // Step 3: Get the valid API key from configuration (appsettings.json)
+        // This should be stored securely (e.g., Azure Key Vault, AWS Secrets Manager)
         var validApiKey = Configuration["ApiSettings:ApiKey"];
         
+        // Step 4: Compare provided key with valid key
+        // Note: In production, use secure comparison to prevent timing attacks
         if (providedApiKey != validApiKey)
         {
+            // Invalid API key - authentication fails
             return Task.FromResult(AuthenticateResult.Fail("Invalid API Key"));
         }
         
+        // Step 5: Create claims for authenticated user
+        // Claims represent information about the authenticated entity
         var claims = new[] { new Claim(ClaimTypes.Name, "API User") };
+        
+        // Step 6: Create identity from claims
+        // Identity represents the authenticated user's identity
         var identity = new ClaimsIdentity(claims, Scheme.Name);
+        
+        // Step 7: Create principal from identity
+        // Principal represents the security context of the user
         var principal = new ClaimsPrincipal(identity);
+        
+        // Step 8: Create authentication ticket
+        // Ticket contains the principal and authentication scheme name
         var ticket = new AuthenticationTicket(principal, Scheme.Name);
         
+        // Step 9: Return success with the authentication ticket
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 }
 
-// Register
+// Register the custom authentication handler in Startup.cs or Program.cs
 services.AddAuthentication("ApiKey")
     .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
         "ApiKey", options => { });
+
+// Usage in Controller:
+// [Authorize(AuthenticationSchemes = "ApiKey")]
+// public class ProductsController : ControllerBase { }
+```
+
+**Security Considerations:**
+- **Store API keys securely**: Never hardcode keys; use configuration, environment variables, or secret management services
+- **Use HTTPS**: Always transmit API keys over encrypted connections
+- **Rotate keys regularly**: Implement key rotation policies
+- **Use secure comparison**: For production, use `CryptographicOperations.FixedTimeEquals()` to prevent timing attacks
+- **Rate limiting**: Implement rate limiting per API key
+- **Key validation**: Consider validating key format before comparison
+- **Logging**: Log authentication failures (but not the actual keys)
+
+**Example Request:**
+```http
+GET /api/products HTTP/1.1
+Host: api.example.com
+X-API-Key: your-secret-api-key-here
+```
+
+**Configuration (appsettings.json):**
+```json
+{
+  "ApiSettings": {
+    "ApiKey": "your-secret-api-key-here"
+  }
+}
 ```
 
 ### Authorization:
