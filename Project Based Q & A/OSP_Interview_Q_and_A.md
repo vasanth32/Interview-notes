@@ -543,7 +543,31 @@ aws iam create-role \
 
 #### **Step 3: CloudWatch Monitoring Setup**
 
-**3.1 Create CloudWatch Alarms**
+**3.1 Create SNS Topic for Notifications (First Step)**
+
+**What is SNS?** Simple Notification Service - sends alerts via email, SMS, Slack, etc.
+
+```bash
+# Create SNS topic for alerts
+aws sns create-topic --name sqs-alerts-topic
+
+# Get topic ARN (you'll need this)
+SNS_TOPIC_ARN=$(aws sns list-topics --query 'Topics[?contains(TopicArn, `sqs-alerts-topic`)].TopicArn' --output text)
+
+# Subscribe email to topic (you'll receive confirmation email - click link to confirm)
+aws sns subscribe \
+  --topic-arn $SNS_TOPIC_ARN \
+  --protocol email \
+  --notification-endpoint your-email@example.com
+
+# Or subscribe phone number for SMS
+aws sns subscribe \
+  --topic-arn $SNS_TOPIC_ARN \
+  --protocol sms \
+  --notification-endpoint +1234567890
+```
+
+**3.2 Create CloudWatch Alarms with Notifications**
 
 ```bash
 # Alarm for queue depth (too many messages waiting)
@@ -557,7 +581,9 @@ aws cloudwatch put-metric-alarm \
   --threshold 1000 \
   --comparison-operator GreaterThanThreshold \
   --evaluation-periods 2 \
-  --dimensions Name=QueueName,Value=order-placed-events
+  --dimensions Name=QueueName,Value=order-placed-events \
+  --alarm-actions $SNS_TOPIC_ARN \
+  --ok-actions $SNS_TOPIC_ARN
 
 # Alarm for DLQ messages (failed processing)
 aws cloudwatch put-metric-alarm \
@@ -570,14 +596,23 @@ aws cloudwatch put-metric-alarm \
   --threshold 1 \
   --comparison-operator GreaterThanThreshold \
   --evaluation-periods 1 \
-  --dimensions Name=QueueName,Value=order-placed-events-dlq
+  --dimensions Name=QueueName,Value=order-placed-events-dlq \
+  --alarm-actions $SNS_TOPIC_ARN \
+  --ok-actions $SNS_TOPIC_ARN
 ```
 
 **Explanation:**
-- **Queue Depth Alarm**: Alerts if >1000 messages waiting (indicates slow processing).
-- **DLQ Alarm**: Alerts immediately if any message in DLQ (indicates processing failures).
+- **Step 1**: Create SNS topic (channel for notifications)
+- **Step 2**: Subscribe your email/phone to topic (where to send alerts)
+- **Step 3**: Add `--alarm-actions $SNS_TOPIC_ARN` to alarms (sends alert when alarm triggers)
+- **Step 4**: Add `--ok-actions $SNS_TOPIC_ARN` (sends notification when alarm recovers)
 
-**3.2 Create CloudWatch Dashboard**
+**What You'll Receive:**
+- **Email/SMS** when queue depth > 1000 messages (slow processing)
+- **Email/SMS** when any message in DLQ (processing failure)
+- **Email/SMS** when issues resolve (alarm returns to OK state)
+
+**3.3 Create CloudWatch Dashboard**
 
 ```bash
 # Create dashboard JSON
@@ -607,6 +642,28 @@ aws cloudwatch put-dashboard \
   --dashboard-name OrderPlacedEventsQueue \
   --dashboard-body file://sqs-dashboard.json
 ```
+
+**What's Happening Here:**
+
+**What is a Dashboard?**
+- A visual dashboard in AWS CloudWatch showing queue metrics in graphs/charts
+- Like a monitoring screen you can view anytime
+
+**What Metrics Are Tracked?**
+1. **Queue Depth** → How many messages waiting in queue
+2. **In Flight** → How many messages currently being processed
+3. **Messages Sent** → Total messages published to queue
+4. **Messages Received** → Total messages consumed from queue
+
+**How to View:**
+- Go to AWS Console → CloudWatch → Dashboards → "OrderPlacedEventsQueue"
+- See real-time graphs of your queue performance
+
+**Why It's Useful:**
+- Monitor queue health at a glance
+- Spot bottlenecks (high queue depth = slow processing)
+- Track message flow (sent vs received)
+- No need to check individual metrics - everything in one place
 
 ---
 
