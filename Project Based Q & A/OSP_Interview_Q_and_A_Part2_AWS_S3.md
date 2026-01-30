@@ -465,406 +465,6 @@ aws s3api put-bucket-notification-configuration \
 
 ---
 
-### **Architecture Decision: Direct Upload vs Pre-Signed URL Upload**
-
-#### **What is Direct Upload?**
-
-**Direct Upload (Server-Side Upload):**
-- Frontend sends photo to your API server
-- API server receives photo, processes it, then uploads to S3
-- Photo flows through your application server
-
-**Flow:**
-```
-Frontend → API Server → Process/Validate → S3
-```
-
-#### **What is Pre-Signed URL Upload?**
-
-**Pre-Signed URL Upload (Client-Side Upload):**
-- Frontend requests pre-signed URL from API server
-- API server generates pre-signed URL and returns to frontend
-- Frontend uploads directly to S3 using pre-signed URL
-- Photo bypasses your application server
-
-**Flow:**
-```
-Frontend → API Server (get pre-signed URL) → Frontend → S3 (direct upload)
-```
-
----
-
-#### **Detailed Comparison**
-
-| Aspect | Direct Upload | Pre-Signed URL Upload |
-|--------|---------------|----------------------|
-| **Server Load** | High (photo passes through server) | Low (only URL generation) |
-| **Bandwidth** | Uses server bandwidth | Uses client bandwidth |
-| **Scalability** | Limited by server capacity | Highly scalable |
-| **Cost** | Higher (server processing) | Lower (no server processing) |
-| **Latency** | Higher (server processing time) | Lower (direct to S3) |
-| **Security** | Server validates before upload | Validation happens after upload |
-| **File Size Limits** | Limited by server config | Limited by S3 (5TB max) |
-| **Processing** | Can process before upload | Must process after upload |
-| **Error Handling** | Server handles errors | Client handles upload errors |
-| **Progress Tracking** | Server-side tracking | Client-side tracking |
-
----
-
-#### **Which is Best for Student Photo Upload Scenario?**
-
-**Recommendation: Pre-Signed URL Upload (with validation)**
-
-**Why Pre-Signed URL is Better:**
-
-1. **Scalability**
-   - Student photos don't need server processing before upload
-   - Reduces server load significantly
-   - Can handle thousands of concurrent uploads
-
-2. **Performance**
-   - Faster uploads (direct to S3, no server bottleneck)
-   - Better user experience (no server processing delay)
-   - Lower latency
-
-3. **Cost Efficiency**
-   - Reduces server compute costs
-   - Reduces server bandwidth costs
-   - Only pay for S3 storage and requests
-
-4. **Large File Support**
-   - Can handle large photos without server memory issues
-   - Supports multipart upload for very large files
-   - No server timeout issues
-
-**However, Add Validation:**
-
-Even with pre-signed URL upload, you should:
-- Validate file size before generating URL
-- Validate file type before generating URL
-- Set expiration time on pre-signed URL (15 minutes)
-- Process/validate after upload completes (via S3 event)
-
----
-
-#### **Hybrid Approach (Recommended)**
-
-**Best Practice: Pre-Signed URL with Post-Upload Validation**
-
-**Flow:**
-```
-1. Frontend requests upload URL → API validates request → Returns pre-signed URL
-2. Frontend uploads directly to S3 using pre-signed URL
-3. Frontend notifies API server when upload completes
-4. API server validates file (size, type, content)
-5. API server processes image (resize, generate thumbnails)
-6. API server updates database with photo metadata
-```
-
-**Benefits:**
-- Fast upload (direct to S3)
-- Server validation (security)
-- Image processing (thumbnails)
-- Database update (metadata)
-
----
-
-#### **Implementation: Pre-Signed URL Upload**
-
-**Step 1: API Endpoint to Generate Pre-Signed URL**
-
-```csharp
-// Controllers/StudentPhotoController.cs
-[HttpPost("{studentId}/photos/upload-url")]
-public async Task<IActionResult> GetUploadUrl(
-    string studentId,
-    [FromBody] PhotoUploadRequest request)
-{
-    try
-    {
-        // 1. Validate request
-        ValidateUploadRequest(request);
-
-        // 2. Get school ID
-        var schoolId = User.FindFirst("schoolId")?.Value;
-        if (string.IsNullOrEmpty(schoolId))
-        {
-            return BadRequest("School ID not found");
-        }
-
-        // 3. Generate unique file name
-        var fileName = $"{Guid.NewGuid()}.jpg";
-        var key = $"schools/{schoolId}/students/{studentId}/original/{fileName}";
-
-        // 4. Generate pre-signed URL for PUT (upload)
-        var uploadUrl = await _photoService.GenerateUploadUrlAsync(
-            key,
-            request.ContentType,
-            request.FileSize,
-            TimeSpan.FromMinutes(15)); // 15 minute expiration
-
-        // 5. Store upload metadata in database (for validation later)
-        await _photoService.SaveUploadMetadataAsync(new UploadMetadata
-        {
-            StudentId = studentId,
-            SchoolId = schoolId,
-            S3Key = key,
-            FileName = fileName,
-            ContentType = request.ContentType,
-            FileSize = request.FileSize,
-            Status = "Pending",
-            CreatedAt = DateTime.UtcNow
-        });
-
-        return Ok(new
-        {
-            UploadUrl = uploadUrl,
-            Key = key,
-            ExpiresIn = 900 //15 minutes in seconds
-        });
-    }
-    catch (ArgumentException ex)
-    {
-        return BadRequest(ex.Message);
-    }
-}
-
-private void ValidateUploadRequest(PhotoUploadRequest request)
-{
-    // Validate file size (max 5MB)
-    if (request.FileSize > 5 * 1024 * 1024)
-    {
-        throw new ArgumentException("File size exceeds 5MB limit");
-    }
-
-    // Validate content type
-    var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg" };
-    if (!allowedTypes.Contains(request.ContentType.ToLower()))
-    {
-        throw new ArgumentException("Invalid file type. Only JPEG and PNG allowed");
-    }
-}
-```
-
-**Step 2: Service Method to Generate Upload URL**
-
-```csharp
-// Services/StudentPhotoService.cs
-public async Task<string> GenerateUploadUrlAsync(
-    string key,
-    string contentType,
-    long fileSize,
-    TimeSpan expiration)
-{
-    try
-    {
-        // Validate file size before generating URL
-        if (fileSize > _maxFileSizeBytes)
-        {
-            throw new ArgumentException(
-                $"File size exceeds maximum allowed size of {_maxFileSizeBytes / 1024 / 1024} MB");
-        }
-
-        // Generate pre-signed URL for PUT operation
-        var request = new GetPreSignedUrlRequest
-        {
-            BucketName = _bucketName,
-            Key = key,
-            Verb = HttpVerb.PUT, // PUT for upload
-            Expires = DateTime.UtcNow.Add(expiration),
-            ContentType = contentType,
-            ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
-        };
-
-        // Add conditions to enforce file size and content type
-        request.Headers.Add("x-amz-server-side-encryption", "AES256");
-        
-        var url = await _s3Client.GetPreSignedURLAsync(request);
-
-        _logger.LogInformation(
-            "Generated upload URL. Key: {Key}, Expires: {Expires}",
-            key,
-            DateTime.UtcNow.Add(expiration));
-
-        return url;
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Failed to generate upload URL. Key: {Key}", key);
-        throw;
-    }
-}
-```
-
-**Step 3: Frontend Upload Implementation**
-
-```javascript
-// Frontend: upload-photo.js
-async function uploadStudentPhoto(studentId, file) {
-    try {
-        // 1. Validate file on client side
-        if (file.size > 5 * 1024 * 1024) {
-            throw new Error('File size exceeds 5MB');
-        }
-
-        if (!file.type.startsWith('image/')) {
-            throw new Error('Invalid file type');
-        }
-
-        // 2. Request pre-signed URL from API
-        const response = await fetch(`/api/students/${studentId}/photos/upload-url`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                contentType: file.type,
-                fileSize: file.size
-            })
-        });
-
-        const { uploadUrl, key, expiresIn } = await response.json();
-
-        // 3. Upload directly to S3 using pre-signed URL
-        const uploadResponse = await fetch(uploadUrl, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': file.type,
-                'x-amz-server-side-encryption': 'AES256'
-            },
-            body: file
-        });
-
-        if (!uploadResponse.ok) {
-            throw new Error('Upload failed');
-        }
-
-        // 4. Notify API server that upload completed
-        await fetch(`/api/students/${studentId}/photos/upload-complete`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-                key: key,
-                fileSize: file.size,
-                contentType: file.type
-            })
-        });
-
-        console.log('Photo uploaded successfully');
-        return key;
-    } catch (error) {
-        console.error('Upload failed:', error);
-        throw error;
-    }
-}
-```
-
-**Step 4: Post-Upload Validation Endpoint**
-
-```csharp
-// Controllers/StudentPhotoController.cs
-[HttpPost("{studentId}/photos/upload-complete")]
-public async Task<IActionResult> UploadComplete(
-    string studentId,
-    [FromBody] UploadCompleteRequest request)
-{
-    try
-    {
-        var schoolId = User.FindFirst("schoolId")?.Value;
-
-        // 1. Verify file exists in S3
-        var exists = await _photoService.PhotoExistsByKeyAsync(request.Key);
-        if (!exists)
-        {
-            return BadRequest("File not found in S3");
-        }
-
-        // 2. Download and validate file
-        var fileStream = await _photoService.DownloadPhotoAsync(request.Key);
-        
-        // Validate file content (not just extension)
-        using var image = await Image.LoadAsync(fileStream);
-        
-        // Validate dimensions
-        if (image.Width < 100 || image.Height < 100)
-        {
-            // Delete invalid file
-            await _photoService.DeletePhotoByKeyAsync(request.Key);
-            return BadRequest("Image dimensions too small");
-        }
-
-        // 3. Process image (resize, generate thumbnails)
-        await _photoService.ProcessUploadedPhotoAsync(
-            studentId,
-            schoolId,
-            request.Key,
-            image);
-
-        // 4. Update database
-        await _photoService.UpdateUploadStatusAsync(request.Key, "Completed");
-
-        return Ok(new { Message = "Photo processed successfully" });
-    }
-    catch (Exception ex)
-    {
-        _logger.LogError(ex, "Failed to process uploaded photo");
-        return StatusCode(500, "Failed to process photo");
-    }
-}
-```
-
----
-
-#### **When to Use Direct Upload Instead?**
-
-**Use Direct Upload When:**
-
-1. **Heavy Processing Required Before Upload**
-   - Need to compress/transform before storing
-   - Need to extract metadata before upload
-   - Need to validate content before upload
-
-2. **Small Files (< 1MB)**
-   - Overhead of pre-signed URL not worth it
-   - Server can handle easily
-
-3. **Strict Security Requirements**
-   - Need to scan files for viruses/malware
-   - Need to inspect content before storage
-   - Compliance requires server-side validation
-
-4. **Simple Architecture**
-   - Small application, low traffic
-   - Don't need scalability benefits
-
----
-
-#### **Summary: Recommendation for Student Photos**
-
-**Use Pre-Signed URL Upload because:**
-
-✅ **Scalability**: Handle thousands of concurrent uploads  
-✅ **Performance**: Faster uploads, better UX  
-✅ **Cost**: Lower server costs  
-✅ **Large Files**: Support large photos without server issues  
-✅ **Bandwidth**: Client bandwidth, not server bandwidth  
-
-**With These Safeguards:**
-
-✅ **Pre-Upload Validation**: Validate size/type before generating URL  
-✅ **Post-Upload Validation**: Verify file content after upload  
-✅ **Short Expiration**: 15-minute URL expiration  
-✅ **Processing**: Generate thumbnails after upload (via Lambda or background job)  
-✅ **Database Tracking**: Track uploads in database for audit  
-
-**Final Answer: Pre-Signed URL Upload is best for student photo scenario.**
-
----
-
 ### **Part 3: API-Side Implementation (Complete Code)**
 
 #### **Step 1: Install Required NuGet Packages**
@@ -1470,6 +1070,409 @@ builder.Services.AddScoped<IStudentPhotoService, StudentPhotoService>();
 ```
 
 ---
+
+
+### **Architecture Decision: Direct Upload vs Pre-Signed URL Upload**
+
+#### **What is Direct Upload?**
+
+**Direct Upload (Server-Side Upload):**
+- Frontend sends photo to your API server
+- API server receives photo, processes it, then uploads to S3
+- Photo flows through your application server
+
+**Flow:**
+```
+Frontend → API Server → Process/Validate → S3
+```
+
+#### **What is Pre-Signed URL Upload?**
+
+**Pre-Signed URL Upload (Client-Side Upload):**
+- Frontend requests pre-signed URL from API server
+- API server generates pre-signed URL and returns to frontend
+- Frontend uploads directly to S3 using pre-signed URL
+- Photo bypasses your application server
+
+**Flow:**
+```
+Frontend → API Server (get pre-signed URL) → Frontend → S3 (direct upload)
+```
+
+---
+
+#### **Detailed Comparison**
+
+| Aspect | Direct Upload | Pre-Signed URL Upload |
+|--------|---------------|----------------------|
+| **Server Load** | High (photo passes through server) | Low (only URL generation) |
+| **Bandwidth** | Uses server bandwidth | Uses client bandwidth |
+| **Scalability** | Limited by server capacity | Highly scalable |
+| **Cost** | Higher (server processing) | Lower (no server processing) |
+| **Latency** | Higher (server processing time) | Lower (direct to S3) |
+| **Security** | Server validates before upload | Validation happens after upload |
+| **File Size Limits** | Limited by server config | Limited by S3 (5TB max) |
+| **Processing** | Can process before upload | Must process after upload |
+| **Error Handling** | Server handles errors | Client handles upload errors |
+| **Progress Tracking** | Server-side tracking | Client-side tracking |
+
+---
+
+#### **Which is Best for Student Photo Upload Scenario?**
+
+**Recommendation: Pre-Signed URL Upload (with validation)**
+
+**Why Pre-Signed URL is Better:**
+
+1. **Scalability**
+   - Student photos don't need server processing before upload
+   - Reduces server load significantly
+   - Can handle thousands of concurrent uploads
+
+2. **Performance**
+   - Faster uploads (direct to S3, no server bottleneck)
+   - Better user experience (no server processing delay)
+   - Lower latency
+
+3. **Cost Efficiency**
+   - Reduces server compute costs
+   - Reduces server bandwidth costs
+   - Only pay for S3 storage and requests
+
+4. **Large File Support**
+   - Can handle large photos without server memory issues
+   - Supports multipart upload for very large files
+   - No server timeout issues
+
+**However, Add Validation:**
+
+Even with pre-signed URL upload, you should:
+- Validate file size before generating URL
+- Validate file type before generating URL
+- Set expiration time on pre-signed URL (15 minutes)
+- Process/validate after upload completes (via S3 event)
+
+---
+
+#### **Hybrid Approach (Recommended)**
+
+**Best Practice: Pre-Signed URL with Post-Upload Validation**
+
+**Flow:**
+```
+1. Frontend requests upload URL → API validates request → Returns pre-signed URL
+2. Frontend uploads directly to S3 using pre-signed URL
+3. Frontend notifies API server when upload completes
+4. API server validates file (size, type, content)
+5. API server processes image (resize, generate thumbnails)
+6. API server updates database with photo metadata
+```
+
+**Benefits:**
+- Fast upload (direct to S3)
+- Server validation (security)
+- Image processing (thumbnails)
+- Database update (metadata)
+
+---
+
+#### **Implementation: Pre-Signed URL Upload**
+
+**Step 1: API Endpoint to Generate Pre-Signed URL**
+
+```csharp
+// Controllers/StudentPhotoController.cs
+[HttpPost("{studentId}/photos/upload-url")]
+public async Task<IActionResult> GetUploadUrl(
+    string studentId,
+    [FromBody] PhotoUploadRequest request)
+{
+    try
+    {
+        // 1. Validate request
+        ValidateUploadRequest(request);
+
+        // 2. Get school ID
+        var schoolId = User.FindFirst("schoolId")?.Value;
+        if (string.IsNullOrEmpty(schoolId))
+        {
+            return BadRequest("School ID not found");
+        }
+
+        // 3. Generate unique file name
+        var fileName = $"{Guid.NewGuid()}.jpg";
+        var key = $"schools/{schoolId}/students/{studentId}/original/{fileName}";
+
+        // 4. Generate pre-signed URL for PUT (upload)
+        var uploadUrl = await _photoService.GenerateUploadUrlAsync(
+            key,
+            request.ContentType,
+            request.FileSize,
+            TimeSpan.FromMinutes(15)); // 15 minute expiration
+
+        // 5. Store upload metadata in database (for validation later)
+        await _photoService.SaveUploadMetadataAsync(new UploadMetadata
+        {
+            StudentId = studentId,
+            SchoolId = schoolId,
+            S3Key = key,
+            FileName = fileName,
+            ContentType = request.ContentType,
+            FileSize = request.FileSize,
+            Status = "Pending",
+            CreatedAt = DateTime.UtcNow
+        });
+
+        return Ok(new
+        {
+            UploadUrl = uploadUrl,
+            Key = key,
+            ExpiresIn = 900 //15 minutes in seconds
+        });
+    }
+    catch (ArgumentException ex)
+    {
+        return BadRequest(ex.Message);
+    }
+}
+
+private void ValidateUploadRequest(PhotoUploadRequest request)
+{
+    // Validate file size (max 5MB)
+    if (request.FileSize > 5 * 1024 * 1024)
+    {
+        throw new ArgumentException("File size exceeds 5MB limit");
+    }
+
+    // Validate content type
+    var allowedTypes = new[] { "image/jpeg", "image/png", "image/jpg" };
+    if (!allowedTypes.Contains(request.ContentType.ToLower()))
+    {
+        throw new ArgumentException("Invalid file type. Only JPEG and PNG allowed");
+    }
+}
+```
+
+**Step 2: Service Method to Generate Upload URL**
+
+```csharp
+// Services/StudentPhotoService.cs
+public async Task<string> GenerateUploadUrlAsync(
+    string key,
+    string contentType,
+    long fileSize,
+    TimeSpan expiration)
+{
+    try
+    {
+        // Validate file size before generating URL
+        if (fileSize > _maxFileSizeBytes)
+        {
+            throw new ArgumentException(
+                $"File size exceeds maximum allowed size of {_maxFileSizeBytes / 1024 / 1024} MB");
+        }
+
+        // Generate pre-signed URL for PUT operation
+        var request = new GetPreSignedUrlRequest
+        {
+            BucketName = _bucketName,
+            Key = key,
+            Verb = HttpVerb.PUT, // PUT for upload
+            Expires = DateTime.UtcNow.Add(expiration),
+            ContentType = contentType,
+            ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
+        };
+
+        // Add conditions to enforce file size and content type
+        request.Headers.Add("x-amz-server-side-encryption", "AES256");
+        
+        var url = await _s3Client.GetPreSignedURLAsync(request);
+
+        _logger.LogInformation(
+            "Generated upload URL. Key: {Key}, Expires: {Expires}",
+            key,
+            DateTime.UtcNow.Add(expiration));
+
+        return url;
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to generate upload URL. Key: {Key}", key);
+        throw;
+    }
+}
+```
+
+**Step 3: Frontend Upload Implementation**
+
+```javascript
+// Frontend: upload-photo.js
+async function uploadStudentPhoto(studentId, file) {
+    try {
+        // 1. Validate file on client side
+        if (file.size > 5 * 1024 * 1024) {
+            throw new Error('File size exceeds 5MB');
+        }
+
+        if (!file.type.startsWith('image/')) {
+            throw new Error('Invalid file type');
+        }
+
+        // 2. Request pre-signed URL from API
+        const response = await fetch(`/api/students/${studentId}/photos/upload-url`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                contentType: file.type,
+                fileSize: file.size
+            })
+        });
+
+        const { uploadUrl, key, expiresIn } = await response.json();
+
+        // 3. Upload directly to S3 using pre-signed URL
+        const uploadResponse = await fetch(uploadUrl, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': file.type,
+                'x-amz-server-side-encryption': 'AES256'
+            },
+            body: file
+        });
+
+        if (!uploadResponse.ok) {
+            throw new Error('Upload failed');
+        }
+
+        // 4. Notify API server that upload completed
+        await fetch(`/api/students/${studentId}/photos/upload-complete`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                key: key,
+                fileSize: file.size,
+                contentType: file.type
+            })
+        });
+
+        console.log('Photo uploaded successfully');
+        return key;
+    } catch (error) {
+        console.error('Upload failed:', error);
+        throw error;
+    }
+}
+```
+
+**Step 4: Post-Upload Validation Endpoint**
+
+```csharp
+// Controllers/StudentPhotoController.cs
+[HttpPost("{studentId}/photos/upload-complete")]
+public async Task<IActionResult> UploadComplete(
+    string studentId,
+    [FromBody] UploadCompleteRequest request)
+{
+    try
+    {
+        var schoolId = User.FindFirst("schoolId")?.Value;
+
+        // 1. Verify file exists in S3
+        var exists = await _photoService.PhotoExistsByKeyAsync(request.Key);
+        if (!exists)
+        {
+            return BadRequest("File not found in S3");
+        }
+
+        // 2. Download and validate file
+        var fileStream = await _photoService.DownloadPhotoAsync(request.Key);
+        
+        // Validate file content (not just extension)
+        using var image = await Image.LoadAsync(fileStream);
+        
+        // Validate dimensions
+        if (image.Width < 100 || image.Height < 100)
+        {
+            // Delete invalid file
+            await _photoService.DeletePhotoByKeyAsync(request.Key);
+            return BadRequest("Image dimensions too small");
+        }
+
+        // 3. Process image (resize, generate thumbnails)
+        await _photoService.ProcessUploadedPhotoAsync(
+            studentId,
+            schoolId,
+            request.Key,
+            image);
+
+        // 4. Update database
+        await _photoService.UpdateUploadStatusAsync(request.Key, "Completed");
+
+        return Ok(new { Message = "Photo processed successfully" });
+    }
+    catch (Exception ex)
+    {
+        _logger.LogError(ex, "Failed to process uploaded photo");
+        return StatusCode(500, "Failed to process photo");
+    }
+}
+```
+
+---
+
+#### **When to Use Direct Upload Instead?**
+
+**Use Direct Upload When:**
+
+1. **Heavy Processing Required Before Upload**
+   - Need to compress/transform before storing
+   - Need to extract metadata before upload
+   - Need to validate content before upload
+
+2. **Small Files (< 1MB)**
+   - Overhead of pre-signed URL not worth it
+   - Server can handle easily
+
+3. **Strict Security Requirements**
+   - Need to scan files for viruses/malware
+   - Need to inspect content before storage
+   - Compliance requires server-side validation
+
+4. **Simple Architecture**
+   - Small application, low traffic
+   - Don't need scalability benefits
+
+---
+
+#### **Summary: Recommendation for Student Photos**
+
+**Use Pre-Signed URL Upload because:**
+
+✅ **Scalability**: Handle thousands of concurrent uploads  
+✅ **Performance**: Faster uploads, better UX  
+✅ **Cost**: Lower server costs  
+✅ **Large Files**: Support large photos without server issues  
+✅ **Bandwidth**: Client bandwidth, not server bandwidth  
+
+**With These Safeguards:**
+
+✅ **Pre-Upload Validation**: Validate size/type before generating URL  
+✅ **Post-Upload Validation**: Verify file content after upload  
+✅ **Short Expiration**: 15-minute URL expiration  
+✅ **Processing**: Generate thumbnails after upload (via Lambda or background job)  
+✅ **Database Tracking**: Track uploads in database for audit  
+
+**Final Answer: Pre-Signed URL Upload is best for student photo scenario.**
+
+---
+
+
 
 ### **Part 4: Interview Q&A - Student Photo Storage**
 
