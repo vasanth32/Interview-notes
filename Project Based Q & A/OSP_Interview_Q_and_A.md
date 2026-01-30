@@ -988,7 +988,13 @@ namespace NotificationService.Services
         private readonly string _queueUrl;
         private readonly INotificationService _notificationService;
         private readonly ILogger<OrderPlacedEventConsumer> _logger;
+        // AWS SQS supports long polling to reduce latency and costs.
+        // "LongPollingWaitTime" specifies how many seconds the consumer waits on SQS for new messages before returning.
+        // A value of 20 seconds (the maximum allowed) means the consumer will "block" up to 20 seconds per request,
+        // reducing empty responses and minimizing unnecessary API calls.
         private const int LongPollingWaitTime = 20; // seconds
+        // MaxMessagesPerBatch defines how many SQS messages are fetched in one batch-polling request.
+        // AWS SQS allows up to 10 messages per call, which improves efficiency by reducing the number of requests made for high-throughput scenarios.
         private const int MaxMessagesPerBatch = 10;
 
         public OrderPlacedEventConsumer(
@@ -1007,6 +1013,9 @@ namespace NotificationService.Services
         {
             _logger.LogInformation("OrderPlacedEventConsumer started");
 
+            // What is "stoppingToken"? 
+            // It is a CancellationToken provided by the .NET Generic Host infrastructure to signal when the background service should gracefully stop (e.g., during application shutdown).
+            // The loop continues running until "stoppingToken.IsCancellationRequested" becomes true, at which point the background service begins shutdown.
             while (!stoppingToken.IsCancellationRequested)
             {
                 try
@@ -1194,11 +1203,40 @@ public async Task SendOrderConfirmationNotificationAsync(
         <p>Thank you for your order!</p>
     ";
 
-    // Send email
-    await _emailService.SendEmailAsync(
-        to: student.Email,
-        subject: $"Order Confirmation - {orderId}",
-        body: emailBody);
+    // There are several ways to send email in .NET applications:
+    // 1. SMTP: Using SmtpClient to send emails via an SMTP server (e.g., Gmail, Office365, SendGrid SMTP)
+    // 2. Third-party email delivery services via APIs:
+    //    - SendGrid (official SendGrid API client)
+    //    - Amazon SES (using AWS SDK for .NET)
+    //    - Mailgun (HTTP API clients)
+    // 3. Email microservice: Centralize email sending logic in an internal or external microservice.
+    // 4. Azure Communication Services or other cloud-native messaging.
+    // 5. Using background jobs (e.g., Hangfire) to queue/schedule email delivery.
+    //
+    // In this application, email sending is abstracted behind IEmailService.
+    // It can be implemented using any of the above techniques, e.g.:
+    // Here we use SMTP via the .NET SmtpClient class to send the email.
+    // In a production app, SmtpClient could be injected/configured as part of IEmailService,
+    // but here's what the SMTP logic could look like explicitly:
+
+    using (var smtpClient = new SmtpClient("smtp.yoursmtpserver.com")
+    {
+        Port = 587, // common SMTP port; adjust as needed
+        Credentials = new NetworkCredential("your_username", "your_password"),
+        EnableSsl = true
+    })
+    {
+        var mailMessage = new MailMessage
+        {
+            From = new MailAddress("noreply@yourdomain.com"),
+            Subject = $"Order Confirmation - {orderId}",
+            Body = emailBody,
+            IsBodyHtml = true
+        };
+        mailMessage.To.Add(student.Email);
+
+        await smtpClient.SendMailAsync(mailMessage);
+    }
 }
 ```
 
@@ -1263,15 +1301,74 @@ if (processingTime > 30) // seconds
 
 #### **4.3 Monitor DLQ and Handle Failed Messages**
 
+> 💡 **What a real-time dev team will do here:**
+>
+> - **Implement a background service** that continuously polls the Dead Letter Queue (DLQ) for failed messages.
+> - When a message is found in the DLQ:
+>     - Parse and log the error details (including stack trace and context).
+>     - Push detailed error notifications/alerts to the monitoring system (e.g., Slack, PagerDuty, email).
+>     - Store failed messages and processing metadata for root-cause analysis (often in a database or monitoring dashboard).
+> - For certain recoverable failures, the team can provide a UI or script to retry failed messages after the issue is fixed.
+> - Set up dashboards and automated runbooks for the support team to investigate and resolve recurring issues.
+>
+> *Example skeleton:*
+
 ```csharp
-// Create separate worker for DLQ processing
 public class DlqMessageProcessor : BackgroundService
 {
-    // Process messages from DLQ
-    // Log errors, send alerts, investigate failures
-    // Optionally: Retry after fixing issues
+    private readonly IAmazonSQS _sqsClient;
+    private readonly ILogger<DlqMessageProcessor> _logger;
+    private readonly IAlertService _alertService;
+    private readonly string _dlqUrl;
+
+    public DlqMessageProcessor(IAmazonSQS sqsClient, ILogger<DlqMessageProcessor> logger, IAlertService alertService, IConfiguration config)
+    {
+        _sqsClient = sqsClient;
+        _logger = logger;
+        _alertService = alertService;
+        _dlqUrl = config["AWS:SQS:DLQUrl"];
+    }
+
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var messages = await _sqsClient.ReceiveMessageAsync(new ReceiveMessageRequest
+            {
+                QueueUrl = _dlqUrl,
+                MaxNumberOfMessages = 10,
+                WaitTimeSeconds = 10
+            }, stoppingToken);
+
+            foreach (var message in messages.Messages)
+            {
+                try
+                {
+                    // Log message information
+                    _logger.LogError("DLQ Message: {Body}", message.Body);
+
+                    // Send alert to on-call/support/dev team
+                    await _alertService.SendAlertAsync($"DLQ message detected: {message.Body}");
+
+                    // Store/mark for later investigation (optionally implement a retry mechanism here)
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogCritical(ex, "Error processing DLQ message");
+                }
+                finally
+                {
+                    // Remove message from DLQ to avoid reprocessing
+                    await _sqsClient.DeleteMessageAsync(_dlqUrl, message.ReceiptHandle, stoppingToken);
+                }
+            }
+
+            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+        }
+    }
 }
 ```
+
 
 ---
 
@@ -1345,6 +1442,10 @@ _logger.LogInformation(
 
 ```csharp
 // Track metrics
+// These two lines collect metrics related to order processing events:
+// 1. The first line increments a counter every time an order placed event is processed, allowing you to track the total number of such events handled by the system.
+// 2. The second line records the time taken to process each order event (in milliseconds) in a histogram, which helps analyze the distribution of processing durations and identify performance trends or bottlenecks.
+
 _metrics.IncrementCounter("order_placed_events_processed");
 _metrics.RecordHistogram("order_processing_time", stopwatch.ElapsedMilliseconds);
 ```
