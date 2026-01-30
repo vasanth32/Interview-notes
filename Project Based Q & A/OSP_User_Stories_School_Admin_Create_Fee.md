@@ -708,7 +708,37 @@ After setting up S3, add to your `appsettings.json`:
 ### Prompt 1: Project Setup and Structure
 
 ```
-C
+Create an ASP.NET Core 8.0 Web API project for Fee Management Service with the following structure :
+
+1. Create project: FeeManagementService
+2. Install NuGet packages:
+   - Microsoft.EntityFrameworkCore.SqlServer
+   - Microsoft.EntityFrameworkCore.Tools
+   - AWSSDK.S3
+   - FluentValidation.AspNetCore
+   - Microsoft.AspNetCore.Authentication.JwtBearer
+   - Serilog.AspNetCore (for logging)
+
+3. Create folder structure:
+   - Controllers/
+   - Models/
+   - Services/
+   - Data/
+   - Middleware/
+   - Validators/
+   - Configuration/
+
+4. Set up Program.cs with:
+   - JWT authentication
+   - Entity Framework DbContext
+   - Dependency injection
+   - CORS (if needed)
+   - Swagger/OpenAPI
+
+5. Create appsettings.json with:
+   - ConnectionString for database
+   - AWS S3 configuration (BucketName, Region, AccessKey, SecretKey)
+   - JWT settings (Issuer, Audience, SecretKey)
 ```
 
 ### Prompt 2: Database Model and Context
