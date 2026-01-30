@@ -203,23 +203,62 @@ CREATE TABLE Fees (
 );
 ```
 
-### API Endpoint
+### API Endpoints
+
+#### 1. Generate Presigned URL for Image Upload
+
+**Endpoint**: `POST /api/fees/presigned-url`
+
+**Request Headers**:
+```
+Authorization: Bearer {JWT_TOKEN}
+Content-Type: application/json
+```
+
+**Request Body** (JSON):
+```json
+{
+  "feeId": "guid (optional - for new fees can be empty)",
+  "fileName": "fee-image.jpg",
+  "contentType": "image/jpeg",
+  "fileSize": 1048576
+}
+```
+
+**Response** (200 OK):
+```json
+{
+  "presignedUrl": "https://bucket.s3.region.amazonaws.com/path?X-Amz-Algorithm=...",
+  "s3Key": "schools/{schoolId}/fees/{feeId}/filename.jpg",
+  "imageUrl": "https://bucket.s3.region.amazonaws.com/schools/{schoolId}/fees/{feeId}/filename.jpg",
+  "expiresAt": "2024-01-15T10:40:00Z"
+}
+```
+
+**Client Flow**:
+1. Client calls this endpoint to get presigned URL
+2. Client uploads image directly to S3 using presigned URL (PUT request)
+3. Client calls CreateFee endpoint with the returned imageUrl
+
+#### 2. Create Fee
 
 **Endpoint**: `POST /api/fees`
 
 **Request Headers**:
 ```
 Authorization: Bearer {JWT_TOKEN}
-Content-Type: multipart/form-data
+Content-Type: application/json
 ```
 
-**Request Body** (FormData):
-```
-title: string (required)
-description: string (optional)
-amount: decimal (required)
-feeType: string (required) - ActivityFee | ClassFee | CourseFee | TransportFee | LabFee | MiscFee
-image: IFormFile (optional)
+**Request Body** (JSON):
+```json
+{
+  "title": "string (required)",
+  "description": "string (optional)",
+  "amount": 100.00,
+  "feeType": "ActivityFee",
+  "imageUrl": "https://bucket.s3.region.amazonaws.com/path/to/image.jpg (optional)"
+}
 ```
 
 **Response** (201 Created):
@@ -246,6 +285,8 @@ FeeManagementService/
 │   └── FeesController.cs
 ├── Models/
 │   ├── CreateFeeRequest.cs
+│   ├── GeneratePresignedUrlRequest.cs
+│   ├── PresignedUrlResponse.cs
 │   ├── FeeResponse.cs
 │   └── Fee.cs (Entity)
 ├── Services/
@@ -259,7 +300,8 @@ FeeManagementService/
 ├── Middleware/
 │   └── TenantMiddleware.cs (extracts SchoolId from JWT)
 ├── Validators/
-│   └── CreateFeeRequestValidator.cs
+│   ├── CreateFeeRequestValidator.cs
+│   └── GeneratePresignedUrlRequestValidator.cs
 └── Program.cs
 ```
 
@@ -784,62 +826,382 @@ Create request/response models and validation:
    - Description (string, optional, max 2000)
    - Amount (decimal, required, > 0)
    - FeeType (string, required, must be valid enum value)
-   - Image (IFormFile, optional, max 5MB, only JPG/PNG/WebP)
+   - ImageUrl (string, optional, must be valid S3 URL format)
 
-2. Create FeeResponse.cs in Models/:
+2. Create GeneratePresignedUrlRequest.cs in Models/:
+   - FeeId (string, optional - can be empty for new fees, or existing fee ID for updates)
+   - FileName (string, required)
+   - ContentType (string, required, must be image/jpeg, image/png, or image/webp)
+   - FileSize (long, required, max 5242880 bytes = 5MB)
+
+3. Create FeeResponse.cs in Models/:
    - All Fee properties
    - Use AutoMapper or manual mapping
 
-3. Create CreateFeeRequestValidator.cs in Validators/ using FluentValidation:
+4. Create CreateFeeRequestValidator.cs in Validators/ using FluentValidation:
    - Title: NotEmpty, MaximumLength(200)
    - Description: MaximumLength(2000) when not null
    - Amount: GreaterThan(0)
    - FeeType: Must be valid enum value
-   - Image: 
-     - When not null: Max file size 5MB
-     - Allowed extensions: .jpg, .jpeg, .png, .webp
-     - Must be valid image format
+   - ImageUrl: 
+     - When not null: Must be valid URL format
+     - Must start with https:// and contain s3.amazonaws.com or s3.{region}.amazonaws.com
+
+5. Create GeneratePresignedUrlRequestValidator.cs in Validators/:
+   - FileName: NotEmpty, MustMatch(@"\.(jpg|jpeg|png|webp)$", RegexOptions.IgnoreCase)
+   - ContentType: MustBeIn("image/jpeg", "image/png", "image/webp")
+   - FileSize: GreaterThan(0), LessThanOrEqualTo(5242880)
 
 4. Register FluentValidation in Program.cs
 ```
 
-### Prompt 4: AWS S3 Service
+### Prompt 3.5: AWS S3 Bucket Setup
 
 ```
-Create AWS S3 service for image uploads:
+Set up AWS S3 bucket for image storage. Choose ONE method based on your preference:
+
+**RECOMMENDATION FOR 2-HOUR POC: Use AWS Console (Fastest - ~2 minutes) ⚡**
+
+**Option 1: AWS Console (RECOMMENDED for POC - Fastest)**
+1. Log in to AWS Console → S3
+2. Click "Create bucket"
+3. Bucket name: "school-platform-fees" (must be globally unique - add your suffix like "school-platform-fees-yourname")
+4. Region: Choose your region (e.g., "us-east-1")
+5. Block Public Access: 
+   - For POC: Uncheck "Block all public access" (to allow direct image URLs)
+   - For Production: Keep blocked, use CloudFront/CDN
+6. Bucket Versioning: Enable (optional, can skip for POC)
+7. Default encryption: Enable (SSE-S3 is fine for POC)
+8. Click "Create bucket"
+
+**Configure CORS (Required for Presigned URL uploads from Angular client):**
+1. Go to bucket → Permissions → Cross-origin resource sharing (CORS)
+2. Add CORS configuration:
+   [
+     {
+       "AllowedHeaders": ["*"],
+       "AllowedMethods": ["PUT", "POST", "HEAD"],
+       "AllowedOrigins": ["http://localhost:4200", "https://your-angular-app.com"],
+       "ExposeHeaders": ["ETag"],
+       "MaxAgeSeconds": 3000
+     }
+   ]
+
+**IAM User Setup (for API credentials):**
+1. Go to IAM → Users → Create user
+2. User name: "fee-service-s3-user"
+3. Access type: Programmatic access
+4. Permissions: Attach policy directly → Create policy
+5. Policy JSON:
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": [
+           "s3:PutObject",
+           "s3:GetObject",
+           "s3:DeleteObject"
+         ],
+         "Resource": "arn:aws:s3:::school-platform-fees/*"
+       }
+     ]
+   }
+6. Name policy: "FeeServiceS3Policy"
+7. Attach policy to user
+8. **SAVE Access Key ID and Secret Access Key** (needed for appsettings.json)
+
+**Option 2: AWS CLI (Good for Scriptable Setup - ~3 minutes)**
+Prerequisites: AWS CLI installed and configured (aws configure)
+
+Commands:
+# 1. Create S3 bucket
+aws s3 mb s3://school-platform-fees --region us-east-1
+
+# 2. Enable versioning (optional)
+aws s3api put-bucket-versioning \
+  --bucket school-platform-fees \
+  --versioning-configuration Status=Enabled
+
+# 3. Enable encryption
+aws s3api put-bucket-encryption \
+  --bucket school-platform-fees \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      }
+    }]
+  }'
+
+# 4. Configure CORS
+aws s3api put-bucket-cors \
+  --bucket school-platform-fees \
+  --cors-configuration '{
+    "CORSRules": [{
+      "AllowedHeaders": ["*"],
+      "AllowedMethods": ["PUT", "POST", "HEAD"],
+      "AllowedOrigins": ["http://localhost:4200"],
+      "ExposeHeaders": ["ETag"],
+      "MaxAgeSeconds": 3000
+    }]
+  }'
+
+# 5. Set bucket policy for public read (for POC - optional)
+aws s3api put-bucket-policy --bucket school-platform-fees --policy '{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "PublicReadGetObject",
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::school-platform-fees/*"
+  }]
+}'
+
+# 6. Create IAM user
+aws iam create-user --user-name fee-service-s3-user
+
+# 7. Create IAM policy
+aws iam create-policy \
+  --policy-name FeeServiceS3Policy \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::school-platform-fees/*"
+    }]
+  }'
+
+# 8. Attach policy to user (replace ACCOUNT_ID and POLICY_ARN)
+aws iam attach-user-policy \
+  --user-name fee-service-s3-user \
+  --policy-arn arn:aws:iam::ACCOUNT_ID:policy/FeeServiceS3Policy
+
+# 9. Create access key for user
+aws iam create-access-key --user-name fee-service-s3-user
+
+# SAVE the AccessKeyId and SecretAccessKey from output!
+
+**Option 3: Terraform (Best for Infrastructure as Code - ~5 minutes)**
+Create s3-setup.tf file:
+
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+# S3 Bucket
+resource "aws_s3_bucket" "fee_images" {
+  bucket = "school-platform-fees" # Add your suffix for uniqueness
+}
+
+# Enable versioning
+resource "aws_s3_bucket_versioning" "fee_images_versioning" {
+  bucket = aws_s3_bucket.fee_images.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "fee_images_encryption" {
+  bucket = aws_s3_bucket.fee_images.id
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Configure CORS
+resource "aws_s3_bucket_cors_configuration" "fee_images_cors" {
+  bucket = aws_s3_bucket.fee_images.id
+  cors_rule {
+    allowed_headers = ["*"]
+    allowed_methods = ["PUT", "POST", "HEAD"]
+    allowed_origins = ["http://localhost:4200"]
+    expose_headers  = ["ETag"]
+    max_age_seconds = 3000
+  }
+}
+
+# Public read access policy (for POC - remove for production)
+resource "aws_s3_bucket_public_access_block" "fee_images_public" {
+  bucket = aws_s3_bucket.fee_images.id
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "fee_images_public_read" {
+  bucket = aws_s3_bucket.fee_images.id
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.fee_images.arn}/*"
+      }
+    ]
+  })
+}
+
+# IAM User for Service
+resource "aws_iam_user" "fee_service_s3" {
+  name = "fee-service-s3-user"
+}
+
+# IAM Policy
+resource "aws_iam_policy" "fee_service_s3_policy" {
+  name        = "FeeServiceS3Policy"
+  description = "Policy for Fee Management Service to access S3"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${aws_s3_bucket.fee_images.arn}/*"
+      }
+    ]
+  })
+}
+
+# Attach policy to user
+resource "aws_iam_user_policy_attachment" "fee_service_s3_attachment" {
+  user       = aws_iam_user.fee_service_s3.name
+  policy_arn = aws_iam_policy.fee_service_s3_policy.arn
+}
+
+# Create access key
+resource "aws_iam_access_key" "fee_service_s3_key" {
+  user = aws_iam_user.fee_service_s3.name
+}
+
+# Output access key (sensitive)
+output "access_key_id" {
+  value     = aws_iam_access_key.fee_service_s3_key.id
+  sensitive = true
+}
+
+output "secret_access_key" {
+  value     = aws_iam_access_key.fee_service_s3_key.secret
+  sensitive = true
+}
+
+output "bucket_name" {
+  value = aws_s3_bucket.fee_images.bucket
+}
+
+Commands:
+terraform init
+terraform plan
+terraform apply
+terraform output access_key_id
+terraform output secret_access_key
+
+**After Setup (All Options):**
+1. Add configuration to appsettings.json:
+   {
+     "AWS": {
+       "S3": {
+         "BucketName": "school-platform-fees",
+         "Region": "us-east-1",
+         "AccessKey": "YOUR_ACCESS_KEY_ID",
+         "SecretKey": "YOUR_SECRET_ACCESS_KEY"
+       }
+     }
+   }
+
+2. Verify bucket access:
+   - AWS Console: Check bucket exists and is accessible
+   - AWS CLI: aws s3 ls s3://school-platform-fees
+   - Test upload: aws s3 cp test.jpg s3://school-platform-fees/test/ --region us-east-1
+
+**Important Notes:**
+- Bucket name must be globally unique across all AWS accounts
+- CORS configuration is REQUIRED for presigned URL uploads from Angular client
+- For production, use IAM roles instead of access keys
+- For production, use CloudFront CDN in front of S3 for better performance
+- Enable S3 access logging for audit trail (optional)
+```
+
+### Prompt 4: AWS S3 Service (Presigned URL Approach)
+
+```
+Create AWS S3 service for image uploads using Presigned URLs (client uploads directly to S3):
 
 1. Create IS3Service.cs interface in Services/:
-   - Task<string> UploadImageAsync(IFormFile imageFile, string schoolId, string feeId)
+   - Task<PresignedUrlResponse> GeneratePresignedUrlAsync(string schoolId, string feeId, string fileName, string contentType, long fileSize, int expirationMinutes = 10)
+     - Returns: PresignedUrlResponse containing presignedUrl, s3Key, and finalImageUrl
    - Task<bool> DeleteImageAsync(string imageUrl)
-   - (Optional for future: Task<string> GeneratePresignedUrlAsync(string imageUrl, int expirationMinutes = 60) - only if you need private image access)
+   - Task<string> GetImageUrlAsync(string s3Key) - Helper to construct public S3 URL
 
-2. Create S3Service.cs implementation:
+2. Create PresignedUrlResponse.cs DTO:
+   - string PresignedUrl (the presigned URL for upload)
+   - string S3Key (the S3 object key/path)
+   - string ImageUrl (final public URL after upload)
+   - DateTime ExpiresAt (when the presigned URL expires)
+
+3. Create S3Service.cs implementation:
    - Use AWSSDK.S3
    - Constructor: IConfiguration, ILogger<S3Service>
-   - UploadImageAsync:
-     - Validate image before upload:
-       - Check file size (max 5MB)
-       - Check file extension (.jpg, .jpeg, .png, .webp)
-       - Validate it's a valid image file
+   - GeneratePresignedUrlAsync:
+     - Validate input parameters:
+       - Check file size (max 5MB = 5 * 1024 * 1024 bytes)
+       - Check file extension/content type (.jpg, .jpeg, .png, .webp)
+       - Validate schoolId and feeId are not empty
      - Generate unique filename: {feeId}_{timestamp}_{Guid}.{extension}
      - S3 key: schools/{schoolId}/fees/{feeId}/{filename}
-     - Upload to S3 bucket using PutObjectRequest:
-       - Set ContentType based on file extension
-       - Set ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
-       - Use async/await for upload
-     - Return S3 URL: https://{bucket}.s3.{region}.amazonaws.com/{key}
+     - Create GetPreSignedUrlRequest:
+       - BucketName from configuration
+       - Key = generated S3 key
+       - Verb = HttpVerb.PUT (for upload)
+       - Expires = DateTime.UtcNow.AddMinutes(expirationMinutes)
+       - ContentType = provided contentType
+     - Create presigned URL policy with conditions:
+       - ContentLengthRange: [1, 5242880] (1 byte to 5MB)
+       - ContentType: Only allow image types (image/jpeg, image/png, image/webp)
+       - Use GetPreSignedUrlRequest with ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
+     - Generate presigned URL using GetPreSignedURL method
+     - Construct final image URL: https://{bucket}.s3.{region}.amazonaws.com/{key}
+     - Return PresignedUrlResponse with presignedUrl, s3Key, imageUrl, and expiresAt
      - Handle exceptions:
        - AmazonS3Exception → Log and rethrow
-       - UnauthorizedAccessException → Log and throw
+       - ArgumentException → Log and throw (invalid parameters)
        - Exception → Log and wrap in custom exception
    - DeleteImageAsync:
      - Extract S3 key from URL
-     - Delete object from S3
+     - Delete object from S3 using DeleteObjectRequest
      - Return true if successful, false otherwise
+   - GetImageUrlAsync:
+     - Construct and return public S3 URL from S3 key
    - Use async/await for all S3 operations
-   - Log all S3 operations (upload, delete)
+   - Log all S3 operations (presigned URL generation, delete)
 
-3. Register S3Service in Program.cs:
+4. Register S3Service in Program.cs:
    - Read AWS config from appsettings.json:
      - AWS:S3:BucketName
      - AWS:S3:Region
@@ -851,13 +1213,20 @@ Create AWS S3 service for image uploads:
      - Set region from configuration
    - Register S3Service as Scoped
 
-4. Add S3 configuration to appsettings.json:
+5. Add S3 configuration to appsettings.json:
    - AWS:S3:BucketName = "school-platform-fees"
    - AWS:S3:Region = "us-east-1"
    - AWS:S3:AccessKey = "YOUR_ACCESS_KEY" (for POC, use access keys)
    - AWS:S3:SecretKey = "YOUR_SECRET_KEY" (for POC, use access keys)
 
-5. Note: Presigned URLs are NOT needed for server-side uploads. We upload directly from API to S3 using AWS SDK.
+6. Important Notes:
+   - Presigned URLs allow direct client-to-S3 uploads, avoiding API server bottleneck
+   - Presigned URL expires after specified time (default 10 minutes)
+   - Validation is enforced via presigned URL policy (file size, content type)
+   - API validates business logic (schoolId, feeId) before generating presigned URL
+   - Client uploads directly to S3 using presigned URL (PUT request)
+   - After successful upload, client can use the returned ImageUrl to display the image
+   - This approach scales better for high-volume uploads (20k+ concurrent requests)
 ```
 
 ### Prompt 5: Tenant Middleware
@@ -891,17 +1260,17 @@ Create Fee service with business logic:
    - Constructor: FeeDbContext, IS3Service, ILogger<FeeService>
    - CreateFeeAsync:
      - Validate request (use FluentValidation)
-     - If image provided: Upload to S3 via IS3Service
+     - Validate ImageUrl (if provided) - should be a valid S3 URL format
      - Create Fee entity:
        - Generate new Guid for Id
        - Set SchoolId from parameter (from middleware)
        - Set CreatedBy = userId
        - Set CreatedAt = DateTime.UtcNow
-       - Set ImageUrl from S3 upload result
+       - Set ImageUrl from request (client provides S3 URL after uploading)
      - Save to database via DbContext
      - Map to FeeResponse
      - Return response
-     - Handle exceptions (DbUpdateException, S3Exception, etc.)
+     - Handle exceptions (DbUpdateException, etc.)
      - Log all operations
 
 3. Register FeeService in Program.cs (Scoped)
@@ -914,11 +1283,19 @@ Create FeesController with authorization:
 
 1. Create FeesController.cs in Controllers/:
    - [ApiController], [Route("api/[controller]")]
-   - Constructor: IFeeService, ILogger<FeesController>
+   - Constructor: IFeeService, IS3Service, ILogger<FeesController>
+   - [HttpPost("presigned-url")] GeneratePresignedUrl endpoint:
+     - [Authorize(Roles = "SchoolAdmin")]
+     - Parameter: [FromBody] GeneratePresignedUrlRequest (feeId, fileName, contentType, fileSize)
+     - Get SchoolId from HttpContext.Items["SchoolId"]
+     - Validate file size (max 5MB)
+     - Validate content type (image/jpeg, image/png, image/webp)
+     - Call IS3Service.GeneratePresignedUrlAsync
+     - Return 200 OK with PresignedUrlResponse
+     - Handle exceptions and return appropriate status codes
    - [HttpPost] CreateFee endpoint:
      - [Authorize(Roles = "SchoolAdmin")]
-     - [RequestSizeLimit(5242880)] // 5MB limit
-     - Parameter: [FromForm] CreateFeeRequest request
+     - Parameter: [FromBody] CreateFeeRequest request (now includes ImageUrl instead of IFormFile)
      - Get SchoolId from HttpContext.Items["SchoolId"]
      - Get UserId from HttpContext.Items["UserId"] or User.Identity.Name
      - Call IFeeService.CreateFeeAsync
@@ -994,17 +1371,22 @@ Add global error handling and logging:
 Add testing setup and API documentation:
 
 1. Create Postman collection or Swagger test:
-   - POST /api/fees endpoint
+   - POST /api/fees/presigned-url endpoint (get presigned URL)
+   - POST /api/fees endpoint (create fee with imageUrl)
    - Include sample JWT token in Authorization header
    - Test cases:
-     - Valid request with image
-     - Valid request without image
+     - Get presigned URL with valid file metadata
+     - Upload image to S3 using presigned URL (PUT request)
+     - Create fee with valid imageUrl
+     - Create fee without image
      - Missing required fields
      - Invalid amount (negative or zero)
-     - Image too large (>5MB)
-     - Invalid image format
+     - File too large (>5MB) in presigned URL request
+     - Invalid content type in presigned URL request
+     - Invalid imageUrl format in create fee request
      - Unauthorized (no token)
      - Forbidden (wrong role)
+     - Expired presigned URL
 
 2. Update Swagger/OpenAPI:
    - Add XML comments to controller and models
@@ -1012,11 +1394,18 @@ Add testing setup and API documentation:
    - Add example requests/responses
 
 3. Create README.md with:
+   - Prerequisites (AWS account, .NET 8 SDK, SQL Server)
    - Setup instructions
+   - AWS S3 bucket setup (reference Prompt 3.5):
+     - Create S3 bucket
+     - Configure CORS
+     - Set up IAM user/role
+     - Configure bucket policy
    - Environment variables/configuration
    - How to run migrations
    - How to test the API
-   - AWS S3 setup instructions
+   - Complete workflow: Get presigned URL → Upload to S3 → Create fee
+   - Troubleshooting common issues
 ```
 
 ### Prompt 11: High Traffic Optimizations (Optional for POC)
@@ -1064,10 +1453,14 @@ Add optimizations for high traffic (if time permits):
 - [ ] Test database connection
 
 ### Phase 3: AWS S3 Integration (25 minutes)
+- [ ] Set up AWS S3 bucket (use Prompt 3.5 - recommended: AWS Console)
+- [ ] Configure CORS for bucket
+- [ ] Create IAM user and access keys
+- [ ] Add AWS credentials to appsettings.json
 - [ ] Create IS3Service interface
 - [ ] Implement S3Service
-- [ ] Configure AWS credentials
-- [ ] Test S3 upload manually
+- [ ] Test presigned URL generation
+- [ ] Test S3 upload manually (using presigned URL)
 
 ### Phase 4: Business Logic (20 minutes)
 - [ ] Create request/response models
