@@ -56,16 +56,38 @@ Describe how you would implement logging in an ASP.NET Web API application.
 
 How do you handle large file uploads in ASP.NET Web API?
 
-Explain the concept of middleware in ASP.NET Core and how it differs from HTTP modules and handlers in ASP.NET Web API.
+Explain the concept of middleware in ASP.NET Core and how it differs from HTTP modules and handlers in ASP.NET Web API .
 
-Can you explain the MVC pattern and its components?
+Can you explain the MVC pattern and its components ?
 
-How does routing work in ASP.NET MVC?
+How does routing work in ASP.NET MVC ?
 
-What are Action Filters in MVC?
+What are Action Filters in MVC ?
 
-How do you manage session state in MVC?
+How do you manage session state in MVC ?
 
-Explain the concept of ViewModels in MVC.
+Explain the concept of ViewModels in MVC .
 
 What are MediaTypeFormatters?
+
+1) what's is delegate and why need it?
+2) Abstract class have  constructor? , if yes then you cannot create an instance of an abstract class, then how the constructor will call?
+3) LINQ is a lazy loading?
+4) whats the FirstOrDefault and SingleOrDefault ? how it works? LINQ
+5) background services in .net core? how it works 
+6) how you worked with background services? how to register it?
+7) Transient Scope and Singleton in service register? explain
+8) Can we use POST to get data? at what scenario we can use?
+9) What are the parts of JWT token?
+10) Abstract design pattern? have you worked?
+11)
+builder.Services.AddTransient<IMessageService, EmailService>();
+builder.Services.AddTransient<IMessageService, SmsService>(); whats wrong with this registration? how will it work?
+12) there are many middlewares , if one failed next one will execute? it not how we can handle?
+13) Whats azure functions? have you working? when we go for it?
+14) Have you worked with deployments?
+
+15) If a request is failed? how to can re-try it? without returning failed response.
+
+ 
+
