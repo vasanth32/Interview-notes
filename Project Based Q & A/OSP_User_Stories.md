@@ -304,10 +304,11 @@ FeeManagementService/
    - Validate image size (prevent DoS)
 
 4. **S3 Security**
-   - Use IAM roles with least privilege
+   - Use IAM roles with least privilege (or IAM user with minimal permissions for POC)
    - S3 bucket policy: Only allow uploads from service
-   - Generate presigned URLs for image access (optional)
-   - Enable S3 versioning and encryption
+   - For POC: Public read access for images (direct S3 URLs)
+   - For Production: Private bucket + presigned URLs for GET operations (not needed for uploads since we use server-side upload)
+   - Enable S3 versioning and encryption (SSE-S3 or SSE-KMS)
 
 5. **Audit Logging**
    - Log all fee creation attempts
@@ -328,7 +329,7 @@ FeeManagementService/
 
 3. **Caching**
    - Cache fee lists per school (Redis)
-   - Cache S3 presigned URLs (short TTL)
+   - Cache S3 image URLs (if using presigned URLs for private access)
    - Invalidate cache on fee creation
 
 4. **Rate Limiting**
@@ -345,6 +346,12 @@ FeeManagementService/
 
 ### AWS S3 Configuration
 
+**📋 Quick Summary**:
+- **Presigned URLs**: ❌ NOT needed for uploads (we use server-side upload via AWS SDK)
+- **Presigned URLs**: ✅ Optional for GET operations if images are private (skip for POC)
+- **S3 Setup**: Use AWS Console (fastest) or AWS CLI for 2-hour POC
+- **Access**: Use IAM user with access keys for POC (IAM roles for production)
+
 **Bucket Structure**:
 ```
 s3://school-platform-fees/
@@ -354,6 +361,11 @@ s3://school-platform-fees/
               └── {feeId}/
                   └── {filename}.jpg
 ```
+
+**Presigned URLs - When to Use**:
+- ❌ **NOT needed for server-side uploads**: Since our API receives the image and uploads it directly to S3 using AWS SDK, we don't need presigned URLs for uploads.
+- ✅ **Optional for GET operations**: If you want to make images private and generate temporary access URLs for viewing, presigned URLs are useful. For a 2-hour POC, you can make the bucket public-read or use public URLs directly.
+- **For POC**: Skip presigned URLs, use direct S3 URLs. Add presigned URLs later if you need private image access.
 
 **S3 Bucket Policy** (Example):
 ```json
@@ -375,6 +387,319 @@ s3://school-platform-fees/
 **IAM Role Permissions**:
 - `s3:PutObject` on `school-platform-fees/schools/*/fees/*/*`
 - `s3:GetObject` on `school-platform-fees/schools/*/fees/*/*`
+
+---
+
+## AWS S3 Setup - Quick Start Guide
+
+### Option 1: AWS Console (Fastest - ~2 minutes) ⚡
+
+**Steps**:
+1. Log in to AWS Console → S3
+2. Click "Create bucket"
+3. **Bucket name**: `school-platform-fees` (must be globally unique, add your suffix)
+4. **Region**: Choose your region (e.g., `us-east-1`)
+5. **Block Public Access**: 
+   - For POC: Uncheck "Block all public access" (to allow direct image URLs)
+   - For Production: Keep blocked, use presigned URLs
+6. **Bucket Versioning**: Enable (optional, for POC can skip)
+7. **Encryption**: Enable (SSE-S3 is fine for POC)
+8. Click "Create bucket"
+
+**IAM User Setup** (for API credentials):
+1. Go to IAM → Users → Create user
+2. User name: `fee-service-s3-user`
+3. **Access type**: Programmatic access
+4. **Permissions**: Attach policy directly → Create policy
+5. **Policy JSON**:
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::school-platform-fees/*"
+    }
+  ]
+}
+```
+6. Name policy: `FeeServiceS3Policy`
+7. Attach policy to user
+8. **Save Access Key ID and Secret Access Key** (you'll need these for appsettings.json)
+
+**Done!** Use Access Key ID and Secret Access Key in your appsettings.json.
+
+---
+
+### Option 2: AWS CLI (Fast - ~3 minutes) ⚡⚡
+
+**Prerequisites**:
+- AWS CLI installed: `aws --version`
+- AWS CLI configured: `aws configure` (if not done)
+
+**Commands**:
+
+```bash
+# 1. Create S3 bucket
+aws s3 mb s3://school-platform-fees --region us-east-1
+
+# 2. Enable versioning (optional)
+aws s3api put-bucket-versioning \
+  --bucket school-platform-fees \
+  --versioning-configuration Status=Enabled
+
+# 3. Enable encryption (optional)
+aws s3api put-bucket-encryption \
+  --bucket school-platform-fees \
+  --server-side-encryption-configuration '{
+    "Rules": [{
+      "ApplyServerSideEncryptionByDefault": {
+        "SSEAlgorithm": "AES256"
+      }
+    }]
+  }'
+
+# 4. Set bucket policy for public read (for POC - optional)
+aws s3api put-bucket-policy --bucket school-platform-fees --policy '{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "PublicReadGetObject",
+    "Effect": "Allow",
+    "Principal": "*",
+    "Action": "s3:GetObject",
+    "Resource": "arn:aws:s3:::school-platform-fees/*"
+  }]
+}'
+
+# 5. Create IAM user
+aws iam create-user --user-name fee-service-s3-user
+
+# 6. Create IAM policy
+aws iam create-policy \
+  --policy-name FeeServiceS3Policy \
+  --policy-document '{
+    "Version": "2012-10-17",
+    "Statement": [{
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::school-platform-fees/*"
+    }]
+  }'
+
+# 7. Attach policy to user (replace ACCOUNT_ID and POLICY_ARN)
+aws iam attach-user-policy \
+  --user-name fee-service-s3-user \
+  --policy-arn arn:aws:iam::ACCOUNT_ID:policy/FeeServiceS3Policy
+
+# 8. Create access key for user
+aws iam create-access-key --user-name fee-service-s3-user
+
+# Save the AccessKeyId and SecretAccessKey from output!
+```
+
+**Verify**:
+```bash
+aws s3 ls s3://school-platform-fees
+```
+
+---
+
+### Option 3: Terraform (Best for Infrastructure as Code) ⚡⚡⚡
+
+**Create `s3-setup.tf`**:
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1" # Change to your region
+}
+
+# S3 Bucket
+resource "aws_s3_bucket" "fee_images" {
+  bucket = "school-platform-fees" # Add your suffix for uniqueness
+
+  tags = {
+    Name        = "Fee Management Images"
+    Environment = "POC"
+  }
+}
+
+# Enable versioning
+resource "aws_s3_bucket_versioning" "fee_images_versioning" {
+  bucket = aws_s3_bucket.fee_images.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+# Enable encryption
+resource "aws_s3_bucket_server_side_encryption_configuration" "fee_images_encryption" {
+  bucket = aws_s3_bucket.fee_images.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+# Public read access policy (for POC - remove for production)
+resource "aws_s3_bucket_public_access_block" "fee_images_public" {
+  bucket = aws_s3_bucket.fee_images.id
+
+  block_public_acls       = false
+  block_public_policy     = false
+  ignore_public_acls      = false
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_policy" "fee_images_public_read" {
+  bucket = aws_s3_bucket.fee_images.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid       = "PublicReadGetObject"
+        Effect    = "Allow"
+        Principal = "*"
+        Action    = "s3:GetObject"
+        Resource  = "${aws_s3_bucket.fee_images.arn}/*"
+      }
+    ]
+  })
+}
+
+# IAM User for Service
+resource "aws_iam_user" "fee_service_s3" {
+  name = "fee-service-s3-user"
+  tags = {
+    Purpose = "Fee Management Service S3 Access"
+  }
+}
+
+# IAM Policy
+resource "aws_iam_policy" "fee_service_s3_policy" {
+  name        = "FeeServiceS3Policy"
+  description = "Policy for Fee Management Service to access S3"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${aws_s3_bucket.fee_images.arn}/*"
+      }
+    ]
+  })
+}
+
+# Attach policy to user
+resource "aws_iam_user_policy_attachment" "fee_service_s3_attachment" {
+  user       = aws_iam_user.fee_service_s3.name
+  policy_arn = aws_iam_policy.fee_service_s3_policy.arn
+}
+
+# Create access key
+resource "aws_iam_access_key" "fee_service_s3_key" {
+  user = aws_iam_user.fee_service_s3.name
+}
+
+# Output access key (sensitive)
+output "access_key_id" {
+  value     = aws_iam_access_key.fee_service_s3_key.id
+  sensitive = true
+}
+
+output "secret_access_key" {
+  value     = aws_iam_access_key.fee_service_s3_key.secret
+  sensitive = true
+}
+
+output "bucket_name" {
+  value = aws_s3_bucket.fee_images.bucket
+}
+
+output "bucket_region" {
+  value = aws_s3_bucket.fee_images.region
+}
+```
+
+**Commands**:
+```bash
+# Initialize Terraform
+terraform init
+
+# Review plan
+terraform plan
+
+# Apply (creates resources)
+terraform apply
+
+# Get outputs (access keys)
+terraform output access_key_id
+terraform output secret_access_key
+terraform output bucket_name
+terraform output bucket_region
+
+# Destroy (when done testing)
+terraform destroy
+```
+
+---
+
+### Quick Setup Comparison
+
+| Method | Time | Best For |
+|--------|------|----------|
+| **AWS Console** | ~2 min | Quick POC, one-time setup |
+| **AWS CLI** | ~3 min | Scriptable, repeatable |
+| **Terraform** | ~5 min | Infrastructure as Code, production |
+
+**Recommendation for 2-hour POC**: Use **AWS Console** (fastest) or **AWS CLI** (if you prefer command line).
+
+---
+
+### appsettings.json Configuration
+
+After setting up S3, add to your `appsettings.json`:
+
+```json
+{
+  "AWS": {
+    "S3": {
+      "BucketName": "school-platform-fees",
+      "Region": "us-east-1",
+      "AccessKey": "YOUR_ACCESS_KEY_ID",
+      "SecretKey": "YOUR_SECRET_ACCESS_KEY"
+    }
+  }
+}
+```
+
+**⚠️ Security Note**: For production, use IAM roles (EC2/ECS/Lambda) instead of access keys. For POC, access keys in appsettings.json are acceptable.
 
 ---
 
@@ -486,28 +811,53 @@ Create AWS S3 service for image uploads:
 1. Create IS3Service.cs interface in Services/:
    - Task<string> UploadImageAsync(IFormFile imageFile, string schoolId, string feeId)
    - Task<bool> DeleteImageAsync(string imageUrl)
-   - Task<string> GeneratePresignedUrlAsync(string imageUrl, int expirationMinutes = 60)
+   - (Optional for future: Task<string> GeneratePresignedUrlAsync(string imageUrl, int expirationMinutes = 60) - only if you need private image access)
 
 2. Create S3Service.cs implementation:
    - Use AWSSDK.S3
    - Constructor: IConfiguration, ILogger<S3Service>
    - UploadImageAsync:
+     - Validate image before upload:
+       - Check file size (max 5MB)
+       - Check file extension (.jpg, .jpeg, .png, .webp)
+       - Validate it's a valid image file
      - Generate unique filename: {feeId}_{timestamp}_{Guid}.{extension}
      - S3 key: schools/{schoolId}/fees/{feeId}/{filename}
-     - Upload to S3 bucket
+     - Upload to S3 bucket using PutObjectRequest:
+       - Set ContentType based on file extension
+       - Set ServerSideEncryptionMethod = ServerSideEncryptionMethod.AES256
+       - Use async/await for upload
      - Return S3 URL: https://{bucket}.s3.{region}.amazonaws.com/{key}
-     - Handle exceptions (S3Exception, etc.)
-   - Validate image before upload (size, format)
+     - Handle exceptions:
+       - AmazonS3Exception → Log and rethrow
+       - UnauthorizedAccessException → Log and throw
+       - Exception → Log and wrap in custom exception
+   - DeleteImageAsync:
+     - Extract S3 key from URL
+     - Delete object from S3
+     - Return true if successful, false otherwise
    - Use async/await for all S3 operations
+   - Log all S3 operations (upload, delete)
 
-3. Register S3Service in Program.cs with:
-   - AWS credentials from appsettings.json or IAM role
-   - S3 client configuration (region, etc.)
+3. Register S3Service in Program.cs:
+   - Read AWS config from appsettings.json:
+     - AWS:S3:BucketName
+     - AWS:S3:Region
+     - AWS:S3:AccessKey (optional if using IAM role)
+     - AWS:S3:SecretKey (optional if using IAM role)
+   - Create AmazonS3Client:
+     - If AccessKey/SecretKey provided: use BasicAWSCredentials
+     - Otherwise: use default credential chain (IAM role, environment variables, etc.)
+     - Set region from configuration
+   - Register S3Service as Scoped
 
 4. Add S3 configuration to appsettings.json:
-   - BucketName
-   - Region
-   - (Optional: AccessKey, SecretKey if not using IAM role)
+   - AWS:S3:BucketName = "school-platform-fees"
+   - AWS:S3:Region = "us-east-1"
+   - AWS:S3:AccessKey = "YOUR_ACCESS_KEY" (for POC, use access keys)
+   - AWS:S3:SecretKey = "YOUR_SECRET_KEY" (for POC, use access keys)
+
+5. Note: Presigned URLs are NOT needed for server-side uploads. We upload directly from API to S3 using AWS SDK.
 ```
 
 ### Prompt 5: Tenant Middleware
