@@ -1,5 +1,76 @@
 # Edlio-like Online School Platform - Interview Q&A Part 2: AWS S3
 
+## Table of Contents
+
+### [Question: Explain AWS S3 and How It's Used in the OSP Project](#question-explain-aws-s3-and-how-its-used-in-the-osp-project)
+- [Overview Response (30 seconds)](#overview-response-30-seconds)
+
+### [Part 1: AWS S3 High-Level Concepts](#part-1-aws-s3-high-level-concepts)
+- [What is AWS S3?](#what-is-aws-s3)
+- [Core Concepts](#core-concepts)
+  - [1. Buckets](#1-buckets)
+  - [2. Objects](#2-objects)
+  - [3. Storage Classes](#3-storage-classes)
+  - [4. Access Control](#4-access-control)
+  - [5. Features](#5-features)
+- [S3 Pricing Model](#s3-pricing-model)
+
+### [Part 2: S3 Use Cases in OSP Project](#part-2-s3-use-cases-in-osp-project)
+- [Scenario 1: Student Profile Photo Storage](#scenario-1-student-profile-photo-storage)
+- [Complete Implementation Guide: Student Profile Photo Storage](#complete-implementation-guide-student-profile-photo-storage)
+  - [Part 1: Complete Flow Overview](#part-1-complete-flow-overview)
+  - [Part 2: Cloud-Side Setup (Complete Steps)](#part-2-cloud-side-setup-complete-steps)
+  - [Part 3: API-Side Implementation (Complete Code)](#part-3-api-side-implementation-complete-code)
+- [Architecture Decision: Direct Upload vs Pre-Signed URL Upload](#architecture-decision-direct-upload-vs-pre-signed-url-upload)
+  - [What is Direct Upload?](#what-is-direct-upload)
+  - [What is Pre-Signed URL Upload?](#what-is-pre-signed-url-upload)
+  - [Detailed Comparison](#detailed-comparison)
+  - [Which is Best for Student Photo Upload Scenario?](#which-is-best-for-student-photo-upload-scenario)
+  - [Hybrid Approach (Recommended)](#hybrid-approach-recommended)
+  - [Implementation: Pre-Signed URL Upload](#implementation-pre-signed-url-upload)
+  - [When to Use Direct Upload Instead?](#when-to-use-direct-upload-instead)
+- [Part 4: Interview Q&A - Student Photo Storage](#part-4-interview-qa---student-photo-storage)
+- [Part 5: Common Issues and Troubleshooting](#part-5-common-issues-and-troubleshooting)
+  - [Issue 1: "Access Denied" When Uploading Photos](#issue-1-access-denied-when-uploading-photos)
+  - [Issue 2: Pre-signed URLs Not Working](#issue-2-pre-signed-urls-not-working)
+  - [Issue 3: Slow Photo Uploads](#issue-3-slow-photo-uploads)
+  - [Issue 4: High S3 Costs](#issue-4-high-s3-costs)
+  - [Issue 5: Thumbnails Not Generated](#issue-5-thumbnails-not-generated)
+  - [Issue 6: Photo Deletion Not Working](#issue-6-photo-deletion-not-working)
+  - [Issue 7: CORS Errors in Browser](#issue-7-cors-errors-in-browser)
+- [Part 6: Monitoring and Observability](#part-6-monitoring-and-observability)
+- [Summary: Complete Implementation Checklist](#summary-complete-implementation-checklist)
+- [Scenario 2: School Branding Assets (Logos, Banners)](#scenario-2-school-branding-assets-logos-banners)
+- [Scenario 3: Document Storage (Transcripts, Certificates)](#scenario-3-document-storage-transcripts-certificates)
+- [Scenario 4: Generated Reports and Invoices (PDF Storage)](#scenario-4-generated-reports-and-invoices-pdf-storage)
+- [Scenario 5: Activity Images and Media](#scenario-5-activity-images-and-media)
+- [Scenario 6: Backup and Disaster Recovery](#scenario-6-backup-and-disaster-recovery)
+
+### [Part 3: S3 Best Practices in OSP](#part-3-s3-best-practices-in-osp)
+- [1. Security Best Practices](#1-security-best-practices)
+- [2. Cost Optimization](#2-cost-optimization)
+- [3. Performance Optimization](#3-performance-optimization)
+- [4. Monitoring and Observability](#4-monitoring-and-observability)
+
+### [Part 4: Common Interview Questions](#part-4-common-interview-questions)
+- [Q1: Why use S3 instead of database BLOB storage?](#q1-why-use-s3-instead-of-database-blob-storage)
+- [Q2: How do you ensure security for student photos?](#q2-how-do-you-ensure-security-for-student-photos)
+- [Q3: How do you handle large file uploads?](#q3-how-do-you-handle-large-file-uploads)
+- [Q4: How do you optimize costs?](#q4-how-do-you-optimize-costs)
+- [Q5: How do you handle versioning?](#q5-how-do-you-handle-versioning)
+
+### [Summary](#summary)
+- [AWS S3 in OSP Project](#aws-s3-in-osp-project)
+- [Key Benefits](#key-benefits)
+- [Technical Implementation](#technical-implementation)
+
+### [How to Present in Interview](#how-to-present-in-interview)
+- [Opening (10-15 seconds)](#opening-10-15-seconds)
+- [Key Points to Cover](#key-points-to-cover)
+- [Technical Depth](#technical-depth)
+
+---
+
 ## Question: Explain AWS S3 and How It's Used in the OSP Project
 
 ---
