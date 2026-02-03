@@ -72,6 +72,8 @@ Discipline is not punishment or restriction. It's:
 - "I can improve through practice"
 - "Failure is feedback for growth"
 
+----------continue
+
 ### Mindset Shifts for Productivity
 
 #### 1. From "I have to" to "I choose to"
