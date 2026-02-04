@@ -298,6 +298,32 @@ this.searchControl.valueChanges
 
 ## 3️⃣ Clean Architecture – Order Management
 
+### 🔍 What is Clean Architecture? (Beginner Explanation)
+
+**Clean Architecture** is a way of organizing code in layers (like an onion) where:
+- **Inner layers** (Domain) contain business logic and don't depend on anything
+- **Outer layers** (Infrastructure, API) depend on inner layers, not the other way around
+- **Dependencies point inward** - like arrows pointing to the center
+
+**Simple Analogy:**
+```
+Think of it like a house:
+- Core (Domain) = Foundation - never changes, contains business rules
+- Middle (Application) = Structure - uses foundation, defines use cases
+- Outer (Infrastructure/API) = Walls/Roof - can be replaced (change database, UI, cloud)
+
+If you want to change the roof (switch from SQL Server to MongoDB), 
+you don't need to change the foundation (business logic)!
+```
+
+**Key Benefits:**
+- ✅ **Testable** - Business logic doesn't depend on database/UI
+- ✅ **Flexible** - Change database/UI without breaking business rules
+- ✅ **Maintainable** - Clear separation of concerns
+- ✅ **Independent** - Core business logic doesn't know about Entity Framework, SQL, etc.
+
+**The Rule:** Inner layers don't know about outer layers. Domain doesn't know about Entity Framework!
+
 ### Scenario
 
 > Build Order module that should survive future changes (DB, UI, cloud).
