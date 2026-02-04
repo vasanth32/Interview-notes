@@ -6,8 +6,8 @@ This document is for learning Angular concepts through questions and detailed ex
 
 ## 📚 Table of Contents
 
-- [Routing](#routing) ⬅️ **Current Topic**
-- [Components](#components) - Coming soon
+- [Routing](#routing)
+- [Components](#components) ⬅️ **Current Topic**
 - [Services](#services) - Coming soon
 - [Dependency Injection](#dependency-injection) - Coming soon
 - [Data Binding](#data-binding) - Coming soon
@@ -854,9 +854,922 @@ Convert the fees routes to lazy loading:
 
 ---
 
+---
+
+## 🧩 Components
+
+### **Q1: What is a Component in Angular?**
+
+**Answer:**
+
+A component is a **building block** of an Angular application that controls a **view** (a portion of the screen) and its **logic**.
+
+#### **Simple Explanation:**
+
+Think of a component like a **LEGO block**:
+- Each block (component) has a specific purpose
+- You can combine blocks to build something bigger
+- Each block has its own shape (template) and behavior (logic)
+
+#### **Real-World Analogy:**
+
+Imagine a **restaurant menu card**:
+- Each section (Appetizers, Main Course, Desserts) is like a component
+- Each section has its own content (template)
+- Each section has its own rules (logic) - e.g., "Vegetarian items only"
+
+#### **Component Structure:**
+
+Every Angular component consists of:
+
+1. **Template (HTML)** - What the user sees
+2. **Class (TypeScript)** - The logic and data
+3. **Metadata (Decorator)** - Configuration
+
+```typescript
+// Example Component
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-user-card',        // How to use: <app-user-card></app-user-card>
+  templateUrl: './user-card.component.html',  // HTML template
+  styleUrls: ['./user-card.component.css']     // CSS styles
+})
+export class UserCardComponent {
+  userName = 'John Doe';  // Data
+  userEmail = 'john@example.com';
+
+  // Methods (Logic)
+  getUserInfo() {
+    return `${this.userName} - ${this.userEmail}`;
+  }
+}
+```
+
+```html
+<!-- user-card.component.html (Template) -->
+<div class="user-card">
+  <h3>{{ userName }}</h3>
+  <p>{{ userEmail }}</p>
+  <button (click)="getUserInfo()">Get Info</button>
+</div>
+```
+
+#### **Why Use Components?**
+
+- ✅ **Reusability**: Use the same component multiple times
+- ✅ **Modularity**: Break app into smaller, manageable pieces
+- ✅ **Maintainability**: Easy to find and fix issues
+- ✅ **Testability**: Test components independently
+
+---
+
+### **Q2: How to Create a Component?**
+
+**Answer:**
+
+You can create a component using Angular CLI (recommended) or manually.
+
+#### **Method 1: Using Angular CLI (Recommended)**
+
+```bash
+# Generate a component
+ng generate component user-card
+# Short form:
+ng g c user-card
+
+# With options
+ng g c user-card --skip-tests  # Skip test file
+ng g c user-card --inline-template  # Inline template
+ng g c user-card --inline-style  # Inline styles
+```
+
+**What gets created:**
+```
+src/app/user-card/
+├── user-card.component.ts      # Component class
+├── user-card.component.html    # Template
+├── user-card.component.css     # Styles
+└── user-card.component.spec.ts # Tests
+```
+
+#### **Method 2: Manual Creation**
+
+**Step 1: Create files**
+```typescript
+// user-card.component.ts
+import { Component } from '@angular/core';
+
+@Component({
+  selector: 'app-user-card',
+  templateUrl: './user-card.component.html',
+  styleUrls: ['./user-card.component.css']
+})
+export class UserCardComponent {
+  userName = 'John Doe';
+}
+```
+
+**Step 2: Create template**
+```html
+<!-- user-card.component.html -->
+<div>
+  <h3>{{ userName }}</h3>
+</div>
+```
+
+**Step 3: Create styles**
+```css
+/* user-card.component.css */
+div {
+  padding: 10px;
+  border: 1px solid #ccc;
+}
+```
+
+**Step 4: Register in module (if using NgModule)**
+```typescript
+// app.module.ts
+import { UserCardComponent } from './user-card/user-card.component';
+
+@NgModule({
+  declarations: [UserCardComponent],  // Register component
+  // ...
+})
+export class AppModule { }
+```
+
+**Or use standalone (Angular 14+):**
+```typescript
+@Component({
+  selector: 'app-user-card',
+  standalone: true,  // Standalone component
+  templateUrl: './user-card.component.html',
+  styleUrls: ['./user-card.component.css']
+})
+export class UserCardComponent { }
+```
+
+#### **How to Use the Component:**
+
+```html
+<!-- In any template -->
+<app-user-card></app-user-card>
+```
+
+---
+
+### **Q3: What is Component Selector?**
+
+**Answer:**
+
+The selector is a **CSS selector** that tells Angular where to insert the component in the HTML.
+
+#### **Simple Explanation:**
+
+The selector is like a **name tag** that identifies your component:
+- When Angular sees this name in HTML, it replaces it with your component
+
+#### **Types of Selectors:**
+
+**1. Element Selector (Most Common)**
+```typescript
+@Component({
+  selector: 'app-user-card'  // Use as: <app-user-card></app-user-card>
+})
+```
+
+**2. Attribute Selector**
+```typescript
+@Component({
+  selector: '[app-user-card]'  // Use as: <div app-user-card></div>
+})
+```
+
+**3. Class Selector**
+```typescript
+@Component({
+  selector: '.app-user-card'  // Use as: <div class="app-user-card"></div>
+})
+```
+
+**4. ID Selector (Not Recommended)**
+```typescript
+@Component({
+  selector: '#app-user-card'  // Use as: <div id="app-user-card"></div>
+})
+```
+
+#### **Best Practices:**
+
+- ✅ Use **element selector** (most common)
+- ✅ Prefix with `app-` to avoid conflicts
+- ✅ Use kebab-case (lowercase with hyphens)
+- ❌ Avoid ID selector (IDs should be unique)
+
+---
+
+### **Q4: What is Component Template?**
+
+**Answer:**
+
+The template is the **HTML markup** that defines what the component renders on the screen.
+
+#### **Simple Explanation:**
+
+The template is like a **blueprint** for what the user sees:
+- It defines the structure (HTML)
+- It can display data (interpolation)
+- It can handle events (click, input, etc.)
+
+#### **Two Ways to Define Templates:**
+
+**1. External Template (Recommended)**
+```typescript
+@Component({
+  selector: 'app-user-card',
+  templateUrl: './user-card.component.html'  // External file
+})
+```
+
+```html
+<!-- user-card.component.html -->
+<div class="card">
+  <h3>{{ userName }}</h3>
+  <p>{{ userEmail }}</p>
+</div>
+```
+
+**2. Inline Template**
+```typescript
+@Component({
+  selector: 'app-user-card',
+  template: `
+    <div class="card">
+      <h3>{{ userName }}</h3>
+      <p>{{ userEmail }}</p>
+    </div>
+  `  // Template directly in TypeScript
+})
+```
+
+#### **Template Features:**
+
+- **Interpolation**: `{{ userName }}` - Display data
+- **Property Binding**: `[disabled]="isDisabled"` - Set properties
+- **Event Binding**: `(click)="handleClick()"` - Handle events
+- **Directives**: `*ngIf`, `*ngFor`, etc.
+- **Pipes**: `{{ date | date }}` - Transform data
+
+---
+
+### **Q5: What is Component Class?**
+
+**Answer:**
+
+The component class is the **TypeScript class** that contains the component's **data** and **logic**.
+
+#### **Simple Explanation:**
+
+The class is like the **brain** of the component:
+- It stores data (properties)
+- It contains methods (functions)
+- It handles business logic
+
+#### **Component Class Structure:**
+
+```typescript
+import { Component } from '@angular/core';
+
+export class UserCardComponent {
+  // 1. Properties (Data)
+  userName: string = 'John Doe';
+  userEmail: string = 'john@example.com';
+  isActive: boolean = true;
+  userCount: number = 0;
+
+  // 2. Methods (Logic)
+  getUserInfo(): string {
+    return `${this.userName} - ${this.userEmail}`;
+  }
+
+  toggleActive(): void {
+    this.isActive = !this.isActive;
+  }
+
+  incrementCount(): void {
+    this.userCount++;
+  }
+
+  // 3. Lifecycle Hooks (Special methods)
+  ngOnInit(): void {
+    console.log('Component initialized');
+  }
+}
+```
+
+#### **Key Points:**
+
+- ✅ Use `this` to access properties and methods
+- ✅ Properties are accessible in the template
+- ✅ Methods can be called from the template
+- ✅ Follow TypeScript best practices (types, access modifiers)
+
+---
+
+### **Q6: What is Data Binding in Components?**
+
+**Answer:**
+
+Data binding is the mechanism that **connects** the component class (TypeScript) with the template (HTML).
+
+#### **Simple Explanation:**
+
+Data binding is like a **bridge** between your code and the UI:
+- Changes in code → automatically update the UI
+- User actions in UI → trigger code execution
+
+#### **Types of Data Binding:**
+
+**1. Interpolation (One-way: Class → Template)**
+```typescript
+// Class
+userName = 'John Doe';
+```
+```html
+<!-- Template -->
+<p>{{ userName }}</p>  <!-- Displays: John Doe -->
+```
+
+**2. Property Binding (One-way: Class → Template)**
+```typescript
+// Class
+isDisabled = true;
+imageUrl = 'https://example.com/image.jpg';
+```
+```html
+<!-- Template -->
+<button [disabled]="isDisabled">Click</button>
+<img [src]="imageUrl" alt="User">
+```
+
+**3. Event Binding (One-way: Template → Class)**
+```typescript
+// Class
+handleClick() {
+  console.log('Button clicked!');
+}
+```
+```html
+<!-- Template -->
+<button (click)="handleClick()">Click Me</button>
+```
+
+**4. Two-way Binding (Both ways)**
+```typescript
+// Class
+userName = '';
+```
+```html
+<!-- Template -->
+<input [(ngModel)]="userName" placeholder="Enter name">
+<!-- Changes in input update userName, changes in userName update input -->
+```
+
+#### **Visual Summary:**
+
+```
+Component Class          Template
+─────────────────       ────────────────
+userName = 'John'   →   {{ userName }}        (Interpolation)
+isDisabled = true   →   [disabled]="isDisabled" (Property Binding)
+                      →   (click)="handleClick()" (Event Binding)
+userName            ↔   [(ngModel)]="userName"   (Two-way Binding)
+```
+
+---
+
+### **Q7: What are Component Inputs and Outputs?**
+
+**Answer:**
+
+Inputs and Outputs allow components to **communicate** with parent components.
+
+#### **Simple Explanation:**
+
+- **@Input()**: Component **receives** data from parent (like function parameters)
+- **@Output()**: Component **sends** data to parent (like function return value)
+
+#### **@Input() - Receiving Data from Parent**
+
+```typescript
+// child.component.ts
+import { Component, Input } from '@angular/core';
+
+@Component({
+  selector: 'app-user-card',
+  template: `
+    <div>
+      <h3>{{ userName }}</h3>
+      <p>{{ userEmail }}</p>
+    </div>
+  `
+})
+export class UserCardComponent {
+  @Input() userName: string = '';      // Receives from parent
+  @Input() userEmail: string = '';     // Receives from parent
+}
+```
+
+```typescript
+// parent.component.ts
+export class ParentComponent {
+  users = [
+    { name: 'John', email: 'john@example.com' },
+    { name: 'Jane', email: 'jane@example.com' }
+  ];
+}
+```
+
+```html
+<!-- parent.component.html -->
+<app-user-card 
+  [userName]="users[0].name"
+  [userEmail]="users[0].email">
+</app-user-card>
+```
+
+#### **@Output() - Sending Data to Parent**
+
+```typescript
+// child.component.ts
+import { Component, Output, EventEmitter } from '@angular/core';
+
+@Component({
+  selector: 'app-user-card',
+  template: `
+    <div>
+      <h3>{{ userName }}</h3>
+      <button (click)="onDelete()">Delete</button>
+    </div>
+  `
+})
+export class UserCardComponent {
+  @Input() userName: string = '';
+  
+  @Output() userDeleted = new EventEmitter<string>();  // Sends to parent
+
+  onDelete() {
+    this.userDeleted.emit(this.userName);  // Emit event
+  }
+}
+```
+
+```html
+<!-- parent.component.html -->
+<app-user-card 
+  [userName]="user.name"
+  (userDeleted)="handleUserDeleted($event)">
+</app-user-card>
+```
+
+```typescript
+// parent.component.ts
+export class ParentComponent {
+  handleUserDeleted(userName: string) {
+    console.log('User deleted:', userName);
+    // Remove user from list, etc.
+  }
+}
+```
+
+#### **Complete Example: Parent-Child Communication**
+
+```typescript
+// parent.component.ts
+export class UserListComponent {
+  users = ['John', 'Jane', 'Bob'];
+  
+  onUserDeleted(userName: string) {
+    this.users = this.users.filter(u => u !== userName);
+  }
+}
+```
+
+```html
+<!-- parent.component.html -->
+<div *ngFor="let user of users">
+  <app-user-card 
+    [userName]="user"
+    (userDeleted)="onUserDeleted($event)">
+  </app-user-card>
+</div>
+```
+
+---
+
+### **Q8: What are Component Lifecycle Hooks?**
+
+**Answer:**
+
+Lifecycle hooks are **special methods** that Angular calls at specific points in a component's life.
+
+#### **Simple Explanation:**
+
+Think of lifecycle hooks like **milestones** in a component's life:
+- Birth (creation)
+- Growth (changes)
+- Death (destruction)
+
+Angular calls these methods automatically at the right time.
+
+#### **Common Lifecycle Hooks:**
+
+**1. ngOnInit() - Component Initialized**
+```typescript
+export class UserCardComponent implements OnInit {
+  ngOnInit(): void {
+    console.log('Component initialized');
+    // Perfect for: API calls, initialization logic
+  }
+}
+```
+**When**: After Angular creates the component and sets up data binding.
+
+**2. ngOnChanges() - Input Properties Changed**
+```typescript
+import { OnChanges, SimpleChanges } from '@angular/core';
+
+export class UserCardComponent implements OnChanges {
+  @Input() userName: string = '';
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['userName']) {
+      console.log('userName changed:', changes['userName'].currentValue);
+    }
+  }
+}
+```
+**When**: When input properties change.
+
+**3. ngAfterViewInit() - View Initialized**
+```typescript
+import { AfterViewInit, ViewChild, ElementRef } from '@angular/core';
+
+export class UserCardComponent implements AfterViewInit {
+  @ViewChild('myDiv') myDiv!: ElementRef;
+
+  ngAfterViewInit(): void {
+    console.log('View initialized');
+    // Access DOM elements here
+    this.myDiv.nativeElement.style.color = 'red';
+  }
+}
+```
+**When**: After Angular initializes the component's view.
+
+**4. ngOnDestroy() - Component Destroyed**
+```typescript
+import { OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
+
+export class UserCardComponent implements OnDestroy {
+  private subscription!: Subscription;
+
+  ngOnDestroy(): void {
+    console.log('Component destroyed');
+    // Cleanup: unsubscribe, clear timers, etc.
+    this.subscription?.unsubscribe();
+  }
+}
+```
+**When**: Just before Angular destroys the component.
+
+#### **Lifecycle Hook Order:**
+
+```
+1. constructor()           - Component created
+2. ngOnChanges()            - Inputs changed
+3. ngOnInit()               - Component initialized
+4. ngDoCheck()              - Change detection
+5. ngAfterContentInit()     - Content projected
+6. ngAfterContentChecked()  - Content checked
+7. ngAfterViewInit()       - View initialized
+8. ngAfterViewChecked()    - View checked
+9. ngOnDestroy()            - Component destroyed
+```
+
+#### **When to Use Each:**
+
+- **ngOnInit()**: API calls, initialization
+- **ngOnChanges()**: React to input changes
+- **ngAfterViewInit()**: Access DOM elements
+- **ngOnDestroy()**: Cleanup (unsubscribe, clear timers)
+
+---
+
+## 🎯 Interview Questions on Components
+
+### **Q1: What is the difference between @Component and @Directive?**
+
+**Answer:**
+
+| Feature | @Component | @Directive |
+|---------|-----------|------------|
+| **Template** | Has template | No template |
+| **Purpose** | Create UI elements | Modify behavior/appearance |
+| **Selector** | Usually element | Usually attribute |
+| **Use case** | UserCardComponent | HighlightDirective, ClickDirective |
+
+**Example:**
+```typescript
+// Component - Has template
+@Component({
+  selector: 'app-user-card',
+  template: '<div>User Card</div>'
+})
+
+// Directive - No template, modifies existing element
+@Directive({
+  selector: '[appHighlight]'
+})
+```
+
+---
+
+### **Q2: What is the difference between ngOnInit and constructor?**
+
+**Answer:**
+
+| Feature | constructor | ngOnInit |
+|---------|------------|----------|
+| **When** | Component class instantiated | After Angular initializes component |
+| **Purpose** | Dependency injection | Component initialization |
+| **Access to inputs** | ❌ No | ✅ Yes |
+| **Best for** | Injecting services | API calls, setup logic |
+
+**Example:**
+```typescript
+export class UserCardComponent {
+  @Input() userName: string = '';
+
+  constructor(private http: HttpClient) {
+    // ❌ Can't access userName here (not initialized yet)
+    // ✅ Can inject services
+  }
+
+  ngOnInit() {
+    // ✅ Can access userName here
+    // ✅ Perfect for API calls
+    this.loadUserData();
+  }
+}
+```
+
+---
+
+### **Q3: How do you pass data from parent to child component?**
+
+**Answer:**
+
+Use **@Input()** decorator:
+
+```typescript
+// Child component
+@Component({
+  selector: 'app-child',
+  template: '<p>{{ message }}</p>'
+})
+export class ChildComponent {
+  @Input() message: string = '';
+}
+```
+
+```html
+<!-- Parent template -->
+<app-child [message]="parentMessage"></app-child>
+```
+
+```typescript
+// Parent component
+export class ParentComponent {
+  parentMessage = 'Hello from parent!';
+}
+```
+
+---
+
+### **Q4: How do you pass data from child to parent component?**
+
+**Answer:**
+
+Use **@Output()** with **EventEmitter**:
+
+```typescript
+// Child component
+@Component({
+  selector: 'app-child',
+  template: '<button (click)="sendData()">Send</button>'
+})
+export class ChildComponent {
+  @Output() dataSent = new EventEmitter<string>();
+
+  sendData() {
+    this.dataSent.emit('Data from child');
+  }
+}
+```
+
+```html
+<!-- Parent template -->
+<app-child (dataSent)="handleData($event)"></app-child>
+```
+
+```typescript
+// Parent component
+export class ParentComponent {
+  handleData(data: string) {
+    console.log('Received:', data);
+  }
+}
+```
+
+---
+
+### **Q5: What is ViewChild and how do you use it?**
+
+**Answer:**
+
+`@ViewChild` allows a parent component to **access** a child component or DOM element.
+
+```typescript
+import { ViewChild, ElementRef, Component } from '@angular/core';
+
+export class ParentComponent {
+  @ViewChild('myInput') inputElement!: ElementRef;
+  @ViewChild(ChildComponent) childComponent!: ChildComponent;
+
+  ngAfterViewInit() {
+    // Access DOM element
+    this.inputElement.nativeElement.focus();
+    
+    // Access child component
+    this.childComponent.someMethod();
+  }
+}
+```
+
+```html
+<!-- Parent template -->
+<input #myInput type="text">
+<app-child></app-child>
+```
+
+---
+
+### **Q6: What is Content Projection (ng-content)?**
+
+**Answer:**
+
+Content projection allows you to **insert** content from parent into child component.
+
+```typescript
+// Child component
+@Component({
+  selector: 'app-card',
+  template: `
+    <div class="card">
+      <div class="card-header">
+        <ng-content select="[card-header]"></ng-content>
+      </div>
+      <div class="card-body">
+        <ng-content></ng-content>
+      </div>
+    </div>
+  `
+})
+export class CardComponent { }
+```
+
+```html
+<!-- Parent template -->
+<app-card>
+  <h2 card-header>Card Title</h2>
+  <p>Card content goes here</p>
+</app-card>
+```
+
+**Result:**
+```html
+<div class="card">
+  <div class="card-header">
+    <h2>Card Title</h2>
+  </div>
+  <div class="card-body">
+    <p>Card content goes here</p>
+  </div>
+</div>
+```
+
+---
+
+### **Q7: What is the difference between template and templateUrl?**
+
+**Answer:**
+
+| Feature | template | templateUrl |
+|---------|----------|-------------|
+| **Location** | Inline in TypeScript | External HTML file |
+| **Use case** | Small templates | Large templates |
+| **Syntax** | Backticks (``) | File path string |
+
+**Example:**
+```typescript
+// Inline template
+@Component({
+  template: `<div>{{ message }}</div>`
+})
+
+// External template
+@Component({
+  templateUrl: './component.component.html'
+})
+```
+
+**Best Practice**: Use `templateUrl` for templates longer than 3-4 lines.
+
+---
+
+### **Q8: What are Standalone Components?**
+
+**Answer:**
+
+Standalone components (Angular 14+) are components that **don't need** to be declared in an NgModule.
+
+```typescript
+// Standalone component
+@Component({
+  selector: 'app-user-card',
+  standalone: true,  // ← Standalone flag
+  imports: [CommonModule],  // Import what you need
+  templateUrl: './user-card.component.html'
+})
+export class UserCardComponent { }
+```
+
+**Benefits:**
+- ✅ No NgModule needed
+- ✅ Lazy loading is simpler
+- ✅ Better tree-shaking
+- ✅ Modern Angular approach
+
+---
+
+## 📝 Practice Exercises
+
+### **Exercise 1: Create a User Card Component**
+
+Create a component that:
+- Displays user name and email
+- Has a "Delete" button
+- Emits event when deleted
+- Uses @Input() for user data
+- Uses @Output() for delete event
+
+### **Exercise 2: Implement Lifecycle Hooks**
+
+Create a component that:
+- Logs message in ngOnInit()
+- Logs message in ngOnDestroy()
+- Makes API call in ngOnInit()
+- Unsubscribes in ngOnDestroy()
+
+### **Exercise 3: Parent-Child Communication**
+
+Create:
+- Parent component with list of users
+- Child component that displays user card
+- Pass data from parent to child
+- Handle delete event from child to parent
+
+---
+
+## 🎓 Key Takeaways
+
+1. ✅ Components are building blocks of Angular apps
+2. ✅ Component = Template + Class + Metadata
+3. ✅ Use @Input() to receive data from parent
+4. ✅ Use @Output() to send data to parent
+5. ✅ Lifecycle hooks run at specific times
+6. ✅ ngOnInit() is perfect for initialization
+7. ✅ ngOnDestroy() is perfect for cleanup
+8. ✅ Standalone components are the modern approach
+
+---
+
 ## 📚 Next Topics
 
-- [ ] Components
+- [x] Components
 - [ ] Services
 - [ ] Dependency Injection
 - [ ] Data Binding
