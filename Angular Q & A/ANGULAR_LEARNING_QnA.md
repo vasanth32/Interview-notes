@@ -7,8 +7,8 @@ This document is for learning Angular concepts through questions and detailed ex
 ## 📚 Table of Contents
 
 - [Routing](#routing)
-- [Components](#components) ⬅️ **Current Topic**
-- [Services](#services) - Coming soon
+- [Components](#components)
+- [Services](#services) ⬅️ **Current Topic**
 - [Dependency Injection](#dependency-injection) - Coming soon
 - [Data Binding](#data-binding) - Coming soon
 - [Directives](#directives) - Coming soon
@@ -1767,11 +1767,1043 @@ Create:
 
 ---
 
+---
+
+## 🔧 Services
+
+### **Q1: What is a Service in Angular?**
+
+**Answer:**
+
+A service is a **TypeScript class** that contains **reusable business logic** and can be **shared** across multiple components.
+
+#### **Simple Explanation:**
+
+Think of a service like a **shared toolbox**:
+- Multiple people (components) can use the same tools (methods)
+- Tools are stored in one place (service)
+- Everyone uses the same tools, so no duplication
+
+#### **Real-World Analogy:**
+
+Imagine a **restaurant**:
+- **Components** = Waiters (they interact with customers)
+- **Services** = Kitchen staff (they prepare food, handle orders)
+- Waiters don't cook - they call the kitchen (service) to get food
+- Multiple waiters can use the same kitchen
+
+#### **Why Use Services?**
+
+- ✅ **Reusability**: Write logic once, use everywhere
+- ✅ **Separation of Concerns**: Components focus on UI, services handle business logic
+- ✅ **Testability**: Easy to test services independently
+- ✅ **Data Sharing**: Share data between components
+- ✅ **API Calls**: Centralized HTTP requests
+
+#### **Common Use Cases:**
+
+1. **API Communication** - HTTP requests
+2. **Data Sharing** - Share data between components
+3. **Business Logic** - Calculations, validations
+4. **Logging** - Centralized logging
+5. **Authentication** - User login/logout
+6. **Local Storage** - Save/retrieve data
+
+---
+
+### **Q2: How to Create a Service?**
+
+**Answer:**
+
+You can create a service using Angular CLI (recommended) or manually.
+
+#### **Method 1: Using Angular CLI (Recommended)**
+
+```bash
+# Generate a service
+ng generate service services/user
+# Short form:
+ng g s services/user
+
+# With options
+ng g s services/user --skip-tests  # Skip test file
+```
+
+**What gets created:**
+```
+src/app/services/
+├── user.service.ts      # Service class
+└── user.service.spec.ts # Test file
+```
+
+#### **Method 2: Manual Creation**
+
+**Step 1: Create service file**
+```typescript
+// user.service.ts
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'  // Makes it available app-wide
+})
+export class UserService {
+  // Service logic here
+}
+```
+
+**Step 2: Use the service**
+```typescript
+// component.ts
+import { UserService } from './services/user.service';
+
+export class UserComponent {
+  constructor(private userService: UserService) { }
+}
+```
+
+#### **Service Structure:**
+
+```typescript
+import { Injectable } from '@angular/core';
+
+@Injectable({
+  providedIn: 'root'  // Singleton - one instance for entire app
+})
+export class UserService {
+  // Properties
+  private users: string[] = [];
+
+  // Methods
+  getUsers(): string[] {
+    return this.users;
+  }
+
+  addUser(user: string): void {
+    this.users.push(user);
+  }
+
+  deleteUser(user: string): void {
+    this.users = this.users.filter(u => u !== user);
+  }
+}
+```
+
+---
+
+### **Q3: What is @Injectable Decorator?**
+
+**Answer:**
+
+`@Injectable()` is a **decorator** that marks a class as a service that can be **injected** into other classes.
+
+#### **Simple Explanation:**
+
+`@Injectable()` is like a **label** that says:
+- "This is a service"
+- "It can be injected into components"
+- "Angular can manage its lifecycle"
+
+#### **@Injectable() Options:**
+
+**1. providedIn: 'root' (Recommended - Singleton)**
+```typescript
+@Injectable({
+  providedIn: 'root'  // One instance for entire app
+})
+export class UserService { }
+```
+- ✅ **Singleton**: One instance shared across entire app
+- ✅ **Lazy Loading**: Service only created when first used
+- ✅ **Tree-shaking**: Unused services removed from bundle
+
+**2. providedIn: 'platform'**
+```typescript
+@Injectable({
+  providedIn: 'platform'  // Shared across multiple apps
+})
+```
+- Used for services shared across multiple Angular apps
+
+**3. providedIn: 'any'**
+```typescript
+@Injectable({
+  providedIn: 'any'  // New instance for each module
+})
+```
+- Creates new instance for each lazy-loaded module
+
+**4. Provided in Module (Old Way)**
+```typescript
+@Injectable()  // No providedIn
+export class UserService { }
+```
+
+```typescript
+// app.module.ts
+@NgModule({
+  providers: [UserService]  // Register here
+})
+```
+
+#### **Best Practice:**
+
+Always use `providedIn: 'root'` for most services (modern Angular approach).
+
+---
+
+### **Q4: How to Inject a Service into a Component?**
+
+**Answer:**
+
+You inject a service using **constructor injection** (Dependency Injection).
+
+#### **Simple Explanation:**
+
+Injection is like **ordering food**:
+- You tell the waiter (Angular) what you want (service)
+- The waiter brings it to you (injects it)
+- You use it (call methods)
+
+#### **Step-by-Step:**
+
+**Step 1: Create Service**
+```typescript
+// user.service.ts
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+  getUsers(): string[] {
+    return ['John', 'Jane', 'Bob'];
+  }
+}
+```
+
+**Step 2: Inject into Component**
+```typescript
+// user.component.ts
+import { Component } from '@angular/core';
+import { UserService } from './services/user.service';
+
+@Component({
+  selector: 'app-user',
+  template: '<div>{{ users }}</div>'
+})
+export class UserComponent {
+  users: string[] = [];
+
+  constructor(private userService: UserService) {
+    // Service is injected here
+    // 'private' creates a property automatically
+  }
+
+  ngOnInit() {
+    this.users = this.userService.getUsers();
+  }
+}
+```
+
+#### **Different Ways to Inject:**
+
+**1. Constructor Injection (Recommended)**
+```typescript
+constructor(private userService: UserService) { }
+// 'private' creates: private userService: UserService
+```
+
+**2. Explicit Property**
+```typescript
+userService: UserService;
+
+constructor(userService: UserService) {
+  this.userService = userService;
+}
+```
+
+**3. Public (if needed in template)**
+```typescript
+constructor(public userService: UserService) { }
+// Can use in template: {{ userService.getUsers() }}
+```
+
+#### **Key Points:**
+
+- ✅ Use `private` in constructor (creates property automatically)
+- ✅ Angular automatically provides the service instance
+- ✅ Service must be decorated with `@Injectable()`
+- ✅ Service must be provided (providedIn or providers array)
+
+---
+
+### **Q5: How to Share Data Between Components Using Services?**
+
+**Answer:**
+
+Services can act as a **central data store** that multiple components can access.
+
+#### **Simple Explanation:**
+
+Think of a service like a **shared whiteboard**:
+- Multiple people (components) can read from it
+- Multiple people can write to it
+- Everyone sees the same data
+
+#### **Example: Sharing User Data**
+
+```typescript
+// user.service.ts
+import { Injectable } from '@angular/core';
+import { BehaviorSubject, Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+  // BehaviorSubject stores current value and emits to subscribers
+  private currentUserSubject = new BehaviorSubject<string>('');
+  public currentUser$: Observable<string> = this.currentUserSubject.asObservable();
+
+  // Set user
+  setCurrentUser(user: string): void {
+    this.currentUserSubject.next(user);
+  }
+
+  // Get current user
+  getCurrentUser(): string {
+    return this.currentUserSubject.value;
+  }
+}
+```
+
+```typescript
+// component1.ts - Sets user
+export class LoginComponent {
+  constructor(private userService: UserService) { }
+
+  login(userName: string) {
+    this.userService.setCurrentUser(userName);
+  }
+}
+```
+
+```typescript
+// component2.ts - Reads user
+export class ProfileComponent {
+  currentUser: string = '';
+
+  constructor(private userService: UserService) { }
+
+  ngOnInit() {
+    // Subscribe to changes
+    this.userService.currentUser$.subscribe(user => {
+      this.currentUser = user;
+    });
+  }
+}
+```
+
+#### **Alternative: Simple Property Sharing**
+
+```typescript
+// user.service.ts
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+  currentUser: string = '';  // Shared property
+
+  setUser(user: string): void {
+    this.currentUser = user;
+  }
+
+  getUser(): string {
+    return this.currentUser;
+  }
+}
+```
+
+```typescript
+// component1.ts
+setUser() {
+  this.userService.setUser('John');
+}
+
+// component2.ts
+ngOnInit() {
+  this.user = this.userService.getUser();
+}
+```
+
+**Note**: For reactive updates, use RxJS (BehaviorSubject/Observable). For simple cases, properties work fine.
+
+---
+
+### **Q6: How to Make HTTP Requests in a Service?**
+
+**Answer:**
+
+Use Angular's **HttpClient** service to make HTTP requests.
+
+#### **Simple Explanation:**
+
+HttpClient is like a **postal service**:
+- You send a request (letter)
+- It goes to the server (address)
+- You get a response (reply)
+
+#### **Step-by-Step:**
+
+**Step 1: Import HttpClientModule**
+```typescript
+// app.config.ts (Standalone) or app.module.ts
+import { provideHttpClient } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient()  // Enable HTTP
+  ]
+};
+```
+
+**Step 2: Inject HttpClient in Service**
+```typescript
+// user.service.ts
+import { Injectable } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+
+@Injectable({
+  providedIn: 'root'
+})
+export class UserService {
+  private apiUrl = 'https://api.example.com/users';
+
+  constructor(private http: HttpClient) { }
+
+  // GET request
+  getUsers(): Observable<User[]> {
+    return this.http.get<User[]>(this.apiUrl);
+  }
+
+  // POST request
+  createUser(user: User): Observable<User> {
+    return this.http.post<User>(this.apiUrl, user);
+  }
+
+  // PUT request
+  updateUser(id: number, user: User): Observable<User> {
+    return this.http.put<User>(`${this.apiUrl}/${id}`, user);
+  }
+
+  // DELETE request
+  deleteUser(id: number): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/${id}`);
+  }
+}
+```
+
+**Step 3: Use in Component**
+```typescript
+// user.component.ts
+export class UserComponent {
+  users: User[] = [];
+
+  constructor(private userService: UserService) { }
+
+  ngOnInit() {
+    this.userService.getUsers().subscribe({
+      next: (users) => {
+        this.users = users;
+      },
+      error: (error) => {
+        console.error('Error:', error);
+      }
+    });
+  }
+}
+```
+
+#### **HTTP Methods:**
+
+```typescript
+// GET - Retrieve data
+this.http.get<User[]>('/api/users')
+
+// POST - Create new resource
+this.http.post<User>('/api/users', userData)
+
+// PUT - Update entire resource
+this.http.put<User>('/api/users/1', userData)
+
+// PATCH - Update partial resource
+this.http.patch<User>('/api/users/1', { name: 'John' })
+
+// DELETE - Delete resource
+this.http.delete<void>('/api/users/1')
+```
+
+---
+
+### **Q7: What is Service Scope and Singleton Pattern?**
+
+**Answer:**
+
+Service scope determines **how many instances** of a service are created.
+
+#### **Simple Explanation:**
+
+Think of service scope like **sharing a car**:
+- **Singleton**: One car shared by everyone (one instance)
+- **Per Component**: Each person has their own car (multiple instances)
+
+#### **Service Scopes:**
+
+**1. Singleton (providedIn: 'root') - Most Common**
+```typescript
+@Injectable({
+  providedIn: 'root'  // One instance for entire app
+})
+export class UserService {
+  private data: string = 'Shared Data';
+
+  getData(): string {
+    return this.data;
+  }
+}
+```
+
+**Result:**
+- ✅ One instance created
+- ✅ Shared across all components
+- ✅ Data persists across components
+- ✅ Memory efficient
+
+**2. Per Component Instance**
+```typescript
+@Component({
+  selector: 'app-user',
+  providers: [UserService]  // New instance for this component
+})
+export class UserComponent {
+  constructor(private userService: UserService) { }
+}
+```
+
+**Result:**
+- ❌ New instance for each component
+- ❌ Data not shared between components
+- ❌ Each component has its own state
+
+**3. Per Module**
+```typescript
+@NgModule({
+  providers: [UserService]  // One instance per module
+})
+export class FeatureModule { }
+```
+
+#### **When to Use Each:**
+
+- **Singleton (root)**: Most services (API calls, data sharing, utilities)
+- **Per Component**: Component-specific state, temporary data
+- **Per Module**: Feature-specific services
+
+#### **Example: Singleton Behavior**
+
+```typescript
+// user.service.ts
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  private count: number = 0;
+
+  increment(): void {
+    this.count++;
+  }
+
+  getCount(): number {
+    return this.count;
+  }
+}
+```
+
+```typescript
+// component1.ts
+export class Component1 {
+  constructor(private userService: UserService) { }
+
+  increment() {
+    this.userService.increment();  // count = 1
+  }
+}
+```
+
+```typescript
+// component2.ts
+export class Component2 {
+  constructor(private userService: UserService) { }
+
+  getCount() {
+    return this.userService.getCount();  // Returns 1 (same instance!)
+  }
+}
+```
+
+---
+
+### **Q8: How to Handle Errors in Services?**
+
+**Answer:**
+
+Use **RxJS operators** and **error handling** patterns to handle errors gracefully.
+
+#### **Simple Explanation:**
+
+Error handling is like having a **safety net**:
+- If something goes wrong, catch it
+- Show a friendly message to user
+- Don't let the app crash
+
+#### **Error Handling Patterns:**
+
+**1. Try-Catch (Synchronous)**
+```typescript
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  getUsers(): string[] {
+    try {
+      // Some operation that might fail
+      return this.processUsers();
+    } catch (error) {
+      console.error('Error:', error);
+      return [];  // Return empty array on error
+    }
+  }
+}
+```
+
+**2. Observable Error Handling (Asynchronous)**
+```typescript
+import { catchError, throwError } from 'rxjs';
+
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  constructor(private http: HttpClient) { }
+
+  getUsers(): Observable<User[]> {
+    return this.http.get<User[]>('/api/users').pipe(
+      catchError((error) => {
+        console.error('API Error:', error);
+        // Return empty array or throw custom error
+        return throwError(() => new Error('Failed to load users'));
+      })
+    );
+  }
+}
+```
+
+**3. Component-Level Error Handling**
+```typescript
+// component.ts
+ngOnInit() {
+  this.userService.getUsers().subscribe({
+    next: (users) => {
+      this.users = users;
+    },
+    error: (error) => {
+      console.error('Error loading users:', error);
+      this.errorMessage = 'Failed to load users. Please try again.';
+    }
+  });
+}
+```
+
+**4. Global Error Handler**
+```typescript
+// error-handler.service.ts
+import { Injectable, ErrorHandler } from '@angular/core';
+
+@Injectable()
+export class GlobalErrorHandler implements ErrorHandler {
+  handleError(error: any): void {
+    console.error('Global Error:', error);
+    // Log to external service, show notification, etc.
+  }
+}
+```
+
+```typescript
+// app.config.ts
+import { ErrorHandler } from '@angular/core';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    { provide: ErrorHandler, useClass: GlobalErrorHandler }
+  ]
+};
+```
+
+#### **Best Practices:**
+
+- ✅ Always handle errors in HTTP requests
+- ✅ Provide fallback values
+- ✅ Log errors for debugging
+- ✅ Show user-friendly error messages
+- ✅ Use try-catch for synchronous code
+- ✅ Use RxJS catchError for observables
+
+---
+
+## 🎯 Interview Questions on Services
+
+### **Q1: What is the difference between a Service and a Component?**
+
+**Answer:**
+
+| Feature | Service | Component |
+|---------|---------|-----------|
+| **Purpose** | Business logic, data | UI, user interaction |
+| **Template** | ❌ No template | ✅ Has template |
+| **Directive** | ❌ No | ✅ Yes (can be used in HTML) |
+| **Lifecycle** | Managed by Angular | Has lifecycle hooks |
+| **Use case** | API calls, data sharing | Display UI, handle events |
+
+**Example:**
+```typescript
+// Service - No template, just logic
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  getUsers(): Observable<User[]> {
+    return this.http.get<User[]>('/api/users');
+  }
+}
+
+// Component - Has template, uses service
+@Component({
+  selector: 'app-user',
+  template: '<div>{{ users }}</div>'
+})
+export class UserComponent {
+  constructor(private userService: UserService) { }
+}
+```
+
+---
+
+### **Q2: What is the difference between providedIn: 'root' and providers array?**
+
+**Answer:**
+
+| Feature | providedIn: 'root' | providers array |
+|---------|-------------------|-----------------|
+| **Scope** | App-wide singleton | Module/Component scope |
+| **Lazy Loading** | ✅ Tree-shakeable | ❌ Not tree-shakeable |
+| **Modern** | ✅ Yes (Angular 6+) | ❌ Old way |
+| **Location** | In service file | In module/component |
+
+**Example:**
+```typescript
+// Modern way (Recommended)
+@Injectable({ providedIn: 'root' })
+export class UserService { }
+
+// Old way
+@Injectable()
+export class UserService { }
+
+// In module
+@NgModule({
+  providers: [UserService]  // Register here
+})
+```
+
+**Best Practice**: Always use `providedIn: 'root'` for most services.
+
+---
+
+### **Q3: How do you share data between sibling components?**
+
+**Answer:**
+
+Use a **shared service** with RxJS (BehaviorSubject/Observable):
+
+```typescript
+// data.service.ts
+@Injectable({ providedIn: 'root' })
+export class DataService {
+  private dataSubject = new BehaviorSubject<string>('');
+  public data$ = this.dataSubject.asObservable();
+
+  setData(data: string): void {
+    this.dataSubject.next(data);
+  }
+}
+```
+
+```typescript
+// component1.ts - Sends data
+export class Component1 {
+  constructor(private dataService: DataService) { }
+
+  sendData() {
+    this.dataService.setData('Hello from Component1');
+  }
+}
+```
+
+```typescript
+// component2.ts - Receives data
+export class Component2 {
+  data: string = '';
+
+  constructor(private dataService: DataService) { }
+
+  ngOnInit() {
+    this.dataService.data$.subscribe(data => {
+      this.data = data;
+    });
+  }
+}
+```
+
+---
+
+### **Q4: What is the difference between Subject and BehaviorSubject?**
+
+**Answer:**
+
+| Feature | Subject | BehaviorSubject |
+|---------|---------|-----------------|
+| **Initial Value** | ❌ No | ✅ Yes |
+| **Current Value** | ❌ Can't get | ✅ Can get (.value) |
+| **New Subscribers** | ❌ No initial value | ✅ Gets current value |
+| **Use case** | Events, notifications | State management |
+
+**Example:**
+```typescript
+// Subject - No initial value
+const subject = new Subject<string>();
+subject.subscribe(value => console.log(value));
+subject.next('Hello');  // Subscriber gets: 'Hello'
+
+// BehaviorSubject - Has initial value
+const behaviorSubject = new BehaviorSubject<string>('Initial');
+behaviorSubject.subscribe(value => console.log(value));  // Gets: 'Initial'
+behaviorSubject.next('Hello');  // Gets: 'Hello'
+console.log(behaviorSubject.value);  // 'Hello' (can get current value)
+```
+
+---
+
+### **Q5: How do you handle HTTP errors globally?**
+
+**Answer:**
+
+Use an **HTTP Interceptor**:
+
+```typescript
+// error.interceptor.ts
+import { Injectable } from '@angular/core';
+import { HttpInterceptor, HttpRequest, HttpHandler, HttpErrorResponse } from '@angular/common/http';
+import { catchError } from 'rxjs/operators';
+import { throwError } from 'rxjs';
+
+@Injectable()
+export class ErrorInterceptor implements HttpInterceptor {
+  intercept(req: HttpRequest<any>, next: HttpHandler) {
+    return next.handle(req).pipe(
+      catchError((error: HttpErrorResponse) => {
+        console.error('HTTP Error:', error);
+        
+        // Handle different error types
+        if (error.status === 401) {
+          // Unauthorized - redirect to login
+        } else if (error.status === 500) {
+          // Server error - show message
+        }
+        
+        return throwError(() => error);
+      })
+    );
+  }
+}
+```
+
+```typescript
+// app.config.ts
+import { provideHttpClient, withInterceptors } from '@angular/common/http';
+
+export const appConfig: ApplicationConfig = {
+  providers: [
+    provideHttpClient(withInterceptors([errorInterceptor]))
+  ]
+};
+```
+
+---
+
+### **Q6: How do you test a service?**
+
+**Answer:**
+
+Use **Jasmine** and **Angular Testing Utilities**:
+
+```typescript
+// user.service.spec.ts
+import { TestBed } from '@angular/core/testing';
+import { HttpClientTestingModule, HttpTestingController } from '@angular/common/http/testing';
+import { UserService } from './user.service';
+
+describe('UserService', () => {
+  let service: UserService;
+  let httpMock: HttpTestingController;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      imports: [HttpClientTestingModule],
+      providers: [UserService]
+    });
+    service = TestBed.inject(UserService);
+    httpMock = TestBed.inject(HttpTestingController);
+  });
+
+  it('should get users', () => {
+    const mockUsers = [{ id: 1, name: 'John' }];
+
+    service.getUsers().subscribe(users => {
+      expect(users).toEqual(mockUsers);
+    });
+
+    const req = httpMock.expectOne('/api/users');
+    expect(req.request.method).toBe('GET');
+    req.flush(mockUsers);
+  });
+
+  afterEach(() => {
+    httpMock.verify();
+  });
+});
+```
+
+---
+
+### **Q7: What is the difference between a Service and a Factory?**
+
+**Answer:**
+
+| Feature | Service | Factory |
+|---------|---------|---------|
+| **Returns** | Instance of class | Any value/object |
+| **Use case** | Business logic | Configuration, complex setup |
+| **Modern** | ✅ Standard | ❌ Rarely used |
+
+**Example:**
+```typescript
+// Service - Returns instance
+@Injectable({ providedIn: 'root' })
+export class UserService {
+  getUsers() { }
+}
+
+// Factory - Returns configured object
+export function userServiceFactory() {
+  return {
+    apiUrl: 'https://api.example.com',
+    getUsers: () => { }
+  };
+}
+```
+
+**Note**: In modern Angular, services are preferred over factories.
+
+---
+
+### **Q8: How do you create a singleton service?**
+
+**Answer:**
+
+Use `providedIn: 'root'`:
+
+```typescript
+@Injectable({
+  providedIn: 'root'  // Creates singleton
+})
+export class UserService {
+  // One instance for entire app
+}
+```
+
+**Verify it's a singleton:**
+```typescript
+// component1.ts
+constructor(private userService: UserService) {
+  console.log('Service instance:', this.userService);
+}
+
+// component2.ts
+constructor(private userService: UserService) {
+  console.log('Service instance:', this.userService);
+  // Both will log the SAME instance
+}
+```
+
+---
+
+## 📝 Practice Exercises
+
+### **Exercise 1: Create a User Service**
+
+Create a service that:
+- Stores a list of users
+- Has methods: getUsers(), addUser(), deleteUser()
+- Uses BehaviorSubject for reactive updates
+- Inject it into a component and display users
+
+### **Exercise 2: HTTP Service**
+
+Create a service that:
+- Makes GET request to fetch users
+- Makes POST request to create user
+- Handles errors gracefully
+- Uses proper TypeScript types
+
+### **Exercise 3: Shared Data Service**
+
+Create a service that:
+- Shares data between two sibling components
+- Component1 can set data
+- Component2 can read data
+- Use RxJS for reactive updates
+
+---
+
+## 🎓 Key Takeaways
+
+1. ✅ Services contain reusable business logic
+2. ✅ Use `@Injectable({ providedIn: 'root' })` for most services
+3. ✅ Inject services via constructor
+4. ✅ Services are singletons by default (one instance)
+5. ✅ Use HttpClient for API calls
+6. ✅ Use RxJS (BehaviorSubject) for reactive data sharing
+7. ✅ Always handle errors in HTTP requests
+8. ✅ Services are testable and maintainable
+
+---
+
 ## 📚 Next Topics
 
 - [x] Components
-- [ ] Services
+- [x] Services
 - [ ] Dependency Injection
+- [ ] Data Binding
+- [ ] Directives
+- [ ] HTTP Client
+- [ ] Observables & RxJS
+- [ ] Forms
+- [ ] Lifecycle Hooks
+
+---
+
+**Ask your next question, and I'll add it here with a detailed explanation! 🚀**
 - [ ] Data Binding
 - [ ] Directives
 - [ ] HTTP Client
