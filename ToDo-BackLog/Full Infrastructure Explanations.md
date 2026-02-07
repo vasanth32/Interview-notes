@@ -1,5 +1,106 @@
 # AWS Microservices POC — Step-by-Step Implementation Guide
 
+## 📖 Introduction
+
+### Purpose
+
+This comprehensive guide provides a **hands-on, step-by-step approach** to building a production-ready microservices architecture on AWS using .NET 8. Each Proof of Concept (POC) builds upon the previous one, gradually introducing AWS services, Kubernetes (EKS), and microservices best practices.
+
+### What You'll Learn
+
+- **Microservices Architecture**: Building and deploying independent services
+- **AWS Infrastructure**: EKS, ECR, RDS, SQS, CloudWatch, Secrets Manager, and more
+- **Kubernetes**: Deployments, Services, Ingress, HPA, and canary deployments
+- **DevOps Practices**: CI/CD pipelines, infrastructure as code (Terraform), and monitoring
+- **Production Patterns**: Resilience, security, observability, and cost optimization
+
+### How to Use This Guide
+
+1. **Start with POC-0** - Build the baseline microservices
+2. **Follow sequentially** - Each POC builds on previous concepts
+3. **Use Cursor AI** - Copy prompts into Cursor AI to generate code quickly
+4. **Manual AWS Setup** - Follow manual steps for AWS infrastructure configuration
+5. **Test Each POC** - Verify functionality before moving to the next
+
+### Prerequisites Overview
+
+- .NET 8 SDK
+- Docker Desktop
+- AWS CLI configured
+- Kubernetes (kubectl)
+- Terraform
+- GitHub account
+- AWS account (free tier works for most POCs)
+
+### Architecture Overview
+
+The guide builds a **3-service microservices platform**:
+- **ProductService**: Product catalog management
+- **OrderService**: Order processing
+- **NotificationService**: Async notifications (email/SMS)
+
+All services run on **Amazon EKS (Kubernetes)** with:
+- Independent databases (RDS PostgreSQL)
+- Async messaging (SQS)
+- Centralized logging (CloudWatch)
+- Distributed tracing (X-Ray)
+- Security (Secrets Manager, WAF)
+- Auto-scaling (HPA)
+- Canary deployments
+
+---
+
+## 📑 Index
+
+### Foundation POCs (Start Here)
+
+- **[POC-0: Microservices Baseline](#poc-0-microservices-baseline)** - Create 3 basic .NET 8 Web APIs
+- **[POC-1: Multi-Service Git Strategy](#poc-1-multi-service-git-strategy)** - Mono-repo structure and branching
+- **[POC-2: CI per Microservice](#poc-2-ci-per-microservice)** - GitHub Actions with path-based triggers
+
+### Containerization & Infrastructure
+
+- **[POC-3: Service-Scoped Docker Images](#poc-3-service-scoped-docker-images)** - Dockerfiles and ECR setup
+- **[POC-4: Terraform for Microservices Infra](#poc-4-terraform-for-microservices-infra)** - Infrastructure as code (EKS, RDS, SQS, CloudWatch)
+
+### Kubernetes Deployment
+
+- **[POC-5: EKS Deployment per Service](#poc-5-eks-deployment-per-service)** - Kubernetes manifests and deployments
+- **[POC-6: Rolling Updates with Health Probes](#poc-6-rolling-updates-with-health-probes)** - Health checks and zero-downtime deployments
+- **[POC-7: Microservice Routing (Ingress)](#poc-7-microservice-routing-ingress)** - ALB and Ingress configuration
+
+### Security & Configuration
+
+- **[POC-8: Secure Inter-Service Access](#poc-8-secure-inter-service-access)** - Secrets Manager and IRSA
+- **[POC-9: Database Isolation](#poc-9-database-isolation)** - Database per service with EF Core
+
+### Observability & Resilience
+
+- **[POC-10: Distributed Observability](#poc-10-distributed-observability)** - X-Ray, CloudWatch Logs, correlation IDs
+- **[POC-11: Service Failure Handling](#poc-11-service-failure-handling)** - Circuit breaker, retry, fallback (Polly)
+
+### Async Communication
+
+- **[POC-12: Async Notification Flow](#poc-12-async-notification-flow)** - SQS integration and event-driven architecture
+
+### Scaling & Deployment Strategies
+
+- **[POC-13: Scale Hot Services Only](#poc-13-scale-hot-services-only)** - HPA (Horizontal Pod Autoscaler)
+- **[POC-14: Canary per Service](#poc-14-canary-per-service)** - Canary deployments with traffic splitting
+
+### Production Hardening
+
+- **[POC-15: Microservice Security Hardening](#poc-15-microservice-security-hardening)** - WAF, security headers, DDoS protection
+- **[POC-16: Cost Visibility](#poc-16-cost-visibility)** - Resource tagging, budgets, cost analysis
+- **[POC-17: Partial DR](#poc-17-partial-dr)** - Backup and disaster recovery procedures
+- **[POC-18: Service Incident Simulation](#poc-18-service-incident-simulation)** - Chaos engineering and incident response
+
+### Quick Reference
+
+- **[Final Checklist](#-final-checklist)** - Verification checklist
+- **[Quick Start Commands](#-quick-start-commands)** - Common commands reference
+
+---
 
 > **For each POC**: Use Cursor AI prompts to generate code, then follow manual steps for AWS setup.
 
