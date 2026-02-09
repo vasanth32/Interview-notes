@@ -684,6 +684,29 @@ If failure → Executes compensations
 - Choreography: Simple workflows, event-driven
 - Orchestration: Complex workflows, need control
 
+**When to Use Which (Scenarios):**
+
+**Use Choreography-Based Saga when:**
+- Workflows are **simple and mostly linear**
+  - Example: `OrderPlaced` → `ReserveInventory` → `ProcessPayment` → `SendConfirmation`
+  - Each service just reacts to an event and publishes the next one.
+- Teams/services are **highly decoupled**
+  - Example: Inventory, Payment, Notification are owned by different teams that only agree on event contracts (`OrderPaid`, `OrderCancelled`).
+- You already have a **strong event-driven architecture**
+  - Example: System is built around topics/queues (Kafka, RabbitMQ, Service Bus) and services are natural publishers/subscribers.
+- It’s okay if each service **controls only its own behavior**
+  - Example: Notification Service decides on email/SMS based on its rules without a central workflow brain.
+
+**Use Orchestration-Based Saga when:**
+- Workflows are **complex with many branches and conditions**
+  - Example: Loan application: credit check, fraud check, document verification, manual approval, each with different compensations.
+- You need **clear visibility and central control** of the whole process
+  - Example: Business wants a single place to see: current step, which step failed, what compensating actions ran.
+- You require **strict ordering and business rules**
+  - Example: KYC → Create Account → Issue Card → Activate; if activation fails, roll back some but not all previous steps.
+- **Auditing/compliance** is important
+  - Example: Banking/healthcare where you must prove which steps were executed, when, and with what result.
+
 ---
 
 ## 161. What is the event sourcing pattern?

@@ -6,8 +6,17 @@
 
 **Three Pillars:**
 1. **Logs**: What happened
+   - Event records with timestamps
+   - Example: "User logged in at 10:30 AM"
+   - Used for debugging specific issues
 2. **Metrics**: How much, how often
+   - Numerical measurements over time
+   - Example: "API response time: 200ms average"
+   - Used for performance monitoring and alerts
 3. **Traces**: How requests flow
+   - Request journey across services
+   - Example: "Request went: API Gateway → Auth Service → Order Service → Payment Service"
+   - Used for understanding distributed system behavior
 
 **Why Important in Microservices:**
 - Distributed systems complexity
