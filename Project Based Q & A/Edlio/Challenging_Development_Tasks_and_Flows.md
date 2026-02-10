@@ -1319,6 +1319,94 @@ This guide covers the challenging development tasks and flows implemented in the
 
 ---
 
+## 🔥 Task 13: Duo 2-Step Verification for Admin Security
+
+### The Task
+
+**What Needed to Be Built:**
+- Add Duo-based second-factor verification for admin logins
+- Reduce account takeover risk from compromised passwords
+- Enforce stronger authentication for privileged users
+- Keep sign-in flow secure but simple for operations teams
+- Add audit visibility for second-factor outcomes
+
+### Why It Was Challenging
+
+- **Security vs usability** - Extra authentication step can increase login friction
+- **Role-based enforcement** - MFA needed for privileged roles first
+- **Fallback handling** - Device unavailable scenarios required support-safe recovery
+- **Operational continuity** - Avoid blocking legitimate admins during urgent tasks
+- **Auditability** - Need clear logs for success/failure/denied attempts
+
+### Development Approach
+
+**Phase 1: Policy Design**
+- Defined MFA-required roles (Super Admin, Support Admin, platform-level admins)
+- Mapped login policy: password first, then Duo verification
+- Identified bypass restrictions and emergency access controls
+
+**Phase 2: Duo Integration**
+- Integrated Duo challenge step after password validation
+- Configured supported methods (Duo Push and passcode fallback)
+- Added secure callback handling and validation of second-factor response
+
+**Phase 3: User Experience and Recovery**
+- Added clear prompts for pending, approved, denied, or timeout states
+- Implemented fallback path for users without push capability
+- Defined controlled support process for re-enrollment/recovery
+
+**Phase 4: Monitoring and Governance**
+- Logged MFA challenge initiated, approved, denied, timeout, and failure events
+- Correlated MFA logs with user, role, and request metadata
+- Added alerting for repeated denied/failed second-factor attempts
+
+### Implementation Flow
+
+1. **Primary Authentication Flow:**
+   - Admin submits username and password
+   - ASP.NET Core Identity validates credentials and lockout status
+   - If invalid: sign-in denied with controlled response
+   - If valid: session remains pending until second factor succeeds
+
+2. **Duo Verification Flow:**
+   - System triggers Duo challenge for the authenticated admin
+   - Admin approves push (or enters valid passcode)
+   - Duo result returned and validated by server
+   - On success: issue final token/session and allow admin access
+   - On denial/timeout/failure: deny access and log event
+
+3. **Fallback and Recovery Flow:**
+   - If primary device is unavailable, admin uses approved fallback method
+   - If recovery is needed, support performs identity verification
+   - Account re-enrolled to Duo and normal MFA flow restored
+
+4. **Audit and Alerting Flow:**
+   - All second-factor events stored in centralized logs
+   - Security rules detect suspicious patterns (repeated failures, unusual timings)
+   - Alerts routed to support/security team for investigation
+
+### Key Decisions Made
+
+- **Duo as second factor** - Strong extra control after password authentication
+- **Role-based MFA enforcement** - Applied stricter controls to privileged users first
+- **Push-first, passcode fallback** - Security with practical operational continuity
+- **Audit-by-default** - Every MFA action captured for compliance and incident response
+
+### Outcome
+
+- ✅ Privileged admin access protected with 2-step verification
+- ✅ Reduced risk of account takeover from password compromise
+- ✅ Better visibility into suspicious login attempts
+- ✅ Stronger compliance and audit posture for admin access controls
+
+**Metrics:**
+- MFA coverage for privileged admin roles: 100%
+- Unauthorized admin login attempts blocked at second factor: Increased significantly
+- MFA verification success rate for legitimate users: High and stable
+- Mean time to detect suspicious admin login behavior: Improved
+
+---
+
 ## 🎯 Quick Reference: Development Tasks Summary
 
 | Task | Complexity | Key Technologies | Outcome |
@@ -1335,6 +1423,7 @@ This guide covers the challenging development tasks and flows implemented in the
 | **Caching Strategy** | Medium | Redis, Cache-Aside | 85% hit rate |
 | **OWASP Top 10 Security Hardening** | High | JWT, Key Vault, WAF, SCA | Reduced security risk across services |
 | **Identity Customization for Admin Module** | Medium | ASP.NET Core Identity, Custom Validators, Lockout | Stronger admin authentication security |
+| **Duo 2-Step Verification** | Medium | Duo MFA, ASP.NET Core Identity | Stronger privileged admin access protection |
 
 ---
 
