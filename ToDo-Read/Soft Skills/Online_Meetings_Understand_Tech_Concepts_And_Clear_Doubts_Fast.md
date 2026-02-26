@@ -34,7 +34,7 @@ Listen for (or ask for) these early:
 - **Decision**: What do we need to agree on today?
 
 If it’s not obvious, ask:
-- “Just to align: what decision are we trying to make by the end of this call?”
+- “Just to align: what decision are we trying to make by the end of this call ?”
 
 ---
 
