@@ -6,6 +6,18 @@ Use this rule:
 - After each reading session, **update one row** in the table.
 - Inside the doc, add a marker like `<!-- CONTINUE_READING_FROM_HERE -->` at the next section to resume.
 
+## Quick Navigation
+
+- [Master Index](MASTER_INDEX.md)
+- [AI Notes](AI-Notes/INDEX.md)
+- [DotNet Q & A](DotNet%20Q%20%26%20A/INDEX.md)
+- [Microservices](Microservices/INDEX.md)
+- [Infrastructure](Infrastructure/INDEX.md)
+- [Project Based Q & A](Project%20Based%20Q%20%26%20A/INDEX.md)
+- [Scenario Based](Scenario%20Based/INDEX.md)
+- [ToDo Read](ToDo-Read/INDEX.md)
+- [ToDo BackLog](ToDo-BackLog/INDEX.md)
+
 
 ## Reading List
 
