@@ -1,1 +1,22 @@
+- how deployment happens in your current project ?
 - Factory pattern
+- Liskov
+- practice some csharp programs to write
+- how to create pipeline
+- singnalR
+- durable function
+- tricky constructor questions and write program
+- Domain-Driven Design (DDD)
+- API Gateway Pattern
+- Event-Driven Communication 
+- APIM full concept
+- what are the ways to utlize application insights, open lens, azure sql logs 
+-optimize a Stored Procedure - create prompt to create complex sp with seeded data in table , provide scripts for that , i want to learn the process step by step , finally i should see the time difference before and after optimize 
+-Middleware 
+-refresh jwt token authentication 
+-dependency injection 
+-service life scope 
+-entity framework 
+-optimize performance  
+-API gateway 
+-Azure functions 

@@ -4,14 +4,14 @@ This file is your single entry point to navigate the workspace quickly.
 
 ## Quick Start By Goal
 
-- Revise core C# / ASP.NET topics: [DotNet Q & A](DotNet%20Q%20%26%20A/INDEX.md)
+- Revise core C# / ASP.NET topics: [DotNet-Interview](DotNet-Interview/INDEX.md)
 - Deep-dive microservices architecture and answers: [Microservices](Microservices/INDEX.md)
-- Review deployment and infrastructure flows: [Infrastructure](Infrastructure/INDEX.md)
-- Practice scenario-based interview questions: [Scenario Based](Scenario%20Based/INDEX.md)
-- Study AI concepts for backend developers: [AI Notes](AI-Notes/INDEX.md)
-- Continue pending reading items: [ToDo Read](ToDo-Read/INDEX.md)
-- Track implementation backlogs and POC guides: [ToDo BackLog](ToDo-BackLog/INDEX.md)
-- Project-specific Q&A and challenges: [Project Based Q & A](Project%20Based%20Q%20%26%20A/INDEX.md)
+- Review deployment and infrastructure flows: [Infrastructure-Guides](Infrastructure-Guides/INDEX.md)
+- Practice scenario-based interview questions: [Scenario-Interview](Scenario-Interview/INDEX.md)
+- Study AI concepts for backend developers: [AI Notes](AI/INDEX.md)
+- Continue pending reading items: [ToDo Read](Reading-Queue/INDEX.md)
+- Track implementation backlogs and POC guides: [ToDo BackLog](Backlog/INDEX.md)
+- Project-specific Q&A and challenges: [Project-Interview](Project-Interview/INDEX.md)
 
 ## Core Workspace Files
 
@@ -21,14 +21,14 @@ This file is your single entry point to navigate the workspace quickly.
 
 ## Folder Navigation
 
-- [AI Notes](AI-Notes/INDEX.md)
-- [DotNet Q & A](DotNet%20Q%20%26%20A/INDEX.md)
-- [Infrastructure](Infrastructure/INDEX.md)
+- [AI Notes](AI/INDEX.md)
+- [DotNet-Interview](DotNet-Interview/INDEX.md)
+- [Infrastructure-Guides](Infrastructure-Guides/INDEX.md)
 - [Microservices](Microservices/INDEX.md)
-- [Project Based Q & A](Project%20Based%20Q%20%26%20A/INDEX.md)
-- [Scenario Based](Scenario%20Based/INDEX.md)
-- [ToDo BackLog](ToDo-BackLog/INDEX.md)
-- [ToDo Read](ToDo-Read/INDEX.md)
+- [Project-Interview](Project-Interview/INDEX.md)
+- [Scenario-Interview](Scenario-Interview/INDEX.md)
+- [ToDo BackLog](Backlog/INDEX.md)
+- [ToDo Read](Reading-Queue/INDEX.md)
 
 ## Suggested Daily Flow
 

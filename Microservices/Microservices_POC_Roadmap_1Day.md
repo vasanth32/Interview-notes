@@ -609,7 +609,7 @@ Add troubleshooting and diagnostic endpoints:
 
 #### Phase 1: Setup Event Store & Domain Model (60 min)
 
-**Prompt 15: Create Event Store Infrastructure**
+**Prompt 15: Create Event Store Infrastructure-Guides**
 ```
 Create Event Sourcing infrastructure:
 
@@ -883,7 +883,7 @@ Handle event schema changes:
 ```
 Create AWS deployment configuration:
 
-1. Infrastructure as Code (Terraform or CloudFormation):
+1. Infrastructure-Guides as Code (Terraform or CloudFormation):
    - API Gateway (for routing)
    - Lambda functions (for services) OR ECS Fargate
    - SQS queues (for async communication)
@@ -908,7 +908,7 @@ Create AWS deployment configuration:
    - CloudWatch alarms
    - X-Ray for distributed tracing
 
-5. Create deployment scripts:
+5. Create deployment Deployment-Scripts:
    - Build .NET application
    - Package for Lambda/ECS
    - Deploy via AWS CLI or CDK
@@ -920,7 +920,7 @@ Create AWS deployment configuration:
 ```
 Create Azure deployment configuration:
 
-1. Infrastructure:
+1. Infrastructure-Guides:
    - API Management (for API Gateway)
    - Azure Functions OR App Services (for services)
    - Service Bus (for async communication)
@@ -944,7 +944,7 @@ Create Azure deployment configuration:
    - Alert rules
    - Log Analytics queries
 
-5. Create deployment scripts:
+5. Create deployment Deployment-Scripts:
    - Build .NET application
    - Deploy via Azure CLI or ARM/Bicep
 ```
