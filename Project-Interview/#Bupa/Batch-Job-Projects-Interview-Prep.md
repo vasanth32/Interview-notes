@@ -153,35 +153,139 @@ Everything else (e.g., `"HeaderId=12345: updating claim header status to REJD"`)
 
 ---
 
-## 8. Likely interview questions & short answers
+## 8. Likely interview questions and clear answers
 
-**Q: What does your project do, in one sentence?**
-A: Automates back-office insurance processes — tax generation/finalization, medical claims reconciliation, and membership/cover changes — as scheduled Azure Function batch jobs for Bupa.
+### Q1. What does your project do?
 
-**Q: Why Durable Functions instead of just a normal Azure Function?**
-A: Batch jobs can run long (minutes to hours) and plain HTTP triggers time out. Durable Functions return `202 Accepted` immediately with a `runId` and let the orchestration run in the background while the caller polls status.
+**Answer:**
 
-**Q: How do you avoid putting business logic in the Function/Orchestrator?**
-A: Business logic lives in a separate class library ("Processor"), injected via DI. The Orchestrator only coordinates and calls an Activity; the Activity calls the Processor. Keeps it testable and framework-agnostic.
+> I work on Bupa back-office batch processing. The jobs automate large-volume insurance operations such as generating and finalizing tax statements, verifying tax results, reconciling medical claims, checking membership criteria, and processing cover changes. We are modernizing legacy scheduled jobs into .NET 8 Azure Function applications using Durable Functions. The business rules and Oracle data remain important, but the new design improves operational tracking, logging, scalability, and supportability.
 
-**Q: Why is your batch endpoint `Anonymous` auth instead of a function key?**
-A: These are triggered by internal schedulers/other systems, not end-users, so we secure them at the network layer (APIM/private endpoint/firewall) instead of function keys, which don't fit an automated caller well.
+**Simple follow-up:** A normal API processes one request and responds quickly. A batch job processes many records in the background, often on a schedule, and can run for minutes or hours.
 
-**Q: How do you monitor these jobs in production?**
-A: Serilog writes structured logs to SQL Server (full detail) and Application Insights (filtered — only warnings/errors and tagged lifecycle events like job start/finish summaries), so dashboards stay meaningful and cheap.
+### Q2. Why did you use Durable Functions instead of a normal HTTP-triggered Azure Function?
 
-**Q: Tell me about a hard bug you solved.**
-A: The Oracle 1-hour timeout on AKS (see section 6) — walk through the layer-by-layer elimination.
+**Answer:**
 
-**Q: What's the tax pipeline order?**
-A: Generate (`TaxGenerationJob`) → Verify (`TaxVerifyJob`) → Post-process/finalize or adjust (`TaxGenPst`).
+> A normal HTTP request is not a good place to execute a long-running batch job because the client may time out while waiting and cannot easily track progress. With Durable Functions, the HTTP endpoint validates the request and returns `202 Accepted` immediately. It gives the caller a `runId`, then the job runs asynchronously. The caller can use the `runId` to call a status endpoint and see whether the job is pending, running, completed, or failed.
 
-**Q: What database do you use?**
-A: Oracle for the core domain/business data (legacy + current), SQL Server for structured job logging, Application Insights for telemetry.
+**Key point to remember:** Durable Functions make a long-running workflow reliable and observable; they do not make slow database work automatically faster.
+
+### Q3. Explain the flow from starting a batch job to seeing its result.
+
+**Answer:**
+
+> First, Control-M or another internal caller sends a POST request to the HTTP Starter. The starter validates the input, creates correlation information such as the job request ID, and schedules a Durable orchestration. It returns `202 Accepted` with the `runId` and a status link. The Orchestrator then coordinates the next steps and calls an Activity function. The Activity calls the processor, which performs the real work such as calling Oracle or another internal API. Finally, the caller polls the status endpoint using the `runId` to get the current runtime status and final business result.
+
+### Q4. What is the difference between an HTTP Starter, Orchestrator, and Activity function?
+
+**Answer:**
+
+> The HTTP Starter is the entry point. It receives and validates the request, schedules the job, and returns quickly. The Orchestrator controls the workflow: it decides which activities run and in what order. The Activity contains the external work, for example database calls, HTTP calls, file processing, or invoking the existing batch processor. This separation keeps the function code small and makes the business logic easier to test.
+
+### Q5. Why should an Orchestrator not call a database or HTTP API directly?
+
+**Answer:**
+
+> Durable orchestrators can replay their execution history to rebuild state after restarts or scale-out. If an orchestrator directly called Oracle or an HTTP API, that external call could be repeated during replay and cause duplicate updates or unpredictable behavior. Therefore, the orchestrator only coordinates deterministic workflow steps, while Activity functions perform external I/O exactly where it belongs.
+
+### Q6. How do you handle a failed batch run?
+
+**Answer:**
+
+> The processor or Activity captures the error, logs it with the `RunId` and `JobRequestId`, and lets the orchestration finish as failed when appropriate. The status endpoint returns the runtime status and available error details. This lets support teams search SQL logs or Application Insights for one run rather than manually comparing logs from many executions. For retryable failures, such as a temporary service problem, I would use controlled retries with clear limits. For business validation failures, I would return a meaningful error rather than retrying blindly.
+
+### Q7. How do you monitor and troubleshoot the jobs in production?
+
+**Answer:**
+
+> We use structured Serilog logging with three destinations: console logs for the running workload, SQL Server for detailed searchable job logs, and Application Insights for operational telemetry. Every important event carries correlation values such as `RunId`, `JobRequestId`, and status. SQL keeps detailed information-level logs for support investigations. Application Insights receives warnings, errors, and selected lifecycle events such as job start and job completion, which supports dashboards and alerts without creating unnecessary telemetry noise or cost.
+
+### Q8. Why do you use both SQL logging and Application Insights?
+
+**Answer:**
+
+> They serve different purposes. SQL logging is useful for detailed, per-run operational history and filtering by business identifiers. Application Insights is better for cloud monitoring: exceptions, trends, response timings, dashboards, and alerts. Sending every detailed record-level log to Application Insights would create noise and increase ingestion cost, so we filter it to high-value lifecycle events plus warnings and errors.
+
+### Q9. How is a Durable Function able to remember job status after the original HTTP request ends?
+
+**Answer:**
+
+> Durable Functions persist orchestration state in Azure Storage. Azure Storage queues carry work and control messages, while table storage maintains instance status and orchestration history. The `runId` identifies that persisted orchestration instance. In local development, we use Azurite as the Azure Storage emulator; in Azure, the Function App uses a real Storage Account through `AzureWebJobsStorage`.
+
+### Q10. How do you secure endpoints that use `AuthorizationLevel.Anonymous`?
+
+**Answer:**
+
+> In this project, the endpoints are anonymous because internal schedulers need to call the starter and status APIs without managing Function keys. Anonymous at the Function level does not mean publicly exposed without protection. The real boundary is network and platform security, such as APIM, private endpoints, firewall and IP allow-lists, restricted ingress, and workload identity. I would confirm those controls exist before approving this pattern for production.
+
+### Q11. Tell me about a difficult production issue you investigated.
+
+**Answer using STAR:**
+
+> **Situation:** The `LMembershipCriteriaJob` was a long-running Durable Function calling an on-premises Oracle stored procedure. In AKS, it failed consistently at about 3600 seconds with `ORA-12537: TNS: connection closed`.
+>
+> **Task:** I needed to determine whether the cause was Azure Functions, application timeout configuration, Oracle, or the network path.
+>
+> **Action:** I investigated one layer at a time. I increased the Function timeout to six hours and confirmed the Function host continued running. I raised the Oracle command timeout to 7200 seconds. I ran the same code locally against the same Oracle database, where it ran beyond an hour. I checked the Oracle session, user profile limits, SQL\*Net settings, database logs, and executed the stored procedure independently.
+>
+> **Result:** The Azure Function host remained alive and Oracle continued processing, but the TCP connection was closed only from the Azure/AKS environment at almost exactly one hour. We ruled out application and Oracle causes and escalated to the infrastructure team with evidence that the likely cause was a network-path timeout, such as firewall, NAT, VPN, or load-balancer session timeout.
+
+### Q12. Why did the exact 3600-second failure matter?
+
+**Answer:**
+
+> A failure at the same value every time is strong evidence of a configured timeout rather than random application behavior. Since 3600 seconds is one hour, I treated it as a clue to investigate infrastructure timeout settings. That changed the investigation from "increase another application timeout" to "prove which layer closes the connection."
+
+### Q13. How do you test a migrated tax batch job?
+
+**Answer:**
+
+> We test in stages. First, developers test validation, business logic, error handling, and API endpoints. Next, the team runs the job end to end through Control-M using a limited, controlled data set. Finally, the business performs full production-like regression using the full Hugo database and normal scheduling dependencies. The key success condition is functional parity: tax calculations, statements, extracts, adjustments, and downstream data must be correct and unchanged after the technology migration.
+
+### Q14. Why do some batch jobs call the database directly instead of using REST APIs?
+
+**Answer:**
+
+> For high-volume batch processing, direct database access can reduce API hops and network overhead, which can improve throughput. The trade-off is tighter coupling to database contracts. We manage that risk through controlled stored procedures or queries, careful access permissions, logging, validation, and regression testing. Where a domain API is the correct business boundary, the batch job can use the REST API instead.
+
+### Q15. How would you make a batch job idempotent?
+
+**Answer:**
+
+> Idempotency means that retrying the same request should not create duplicate business effects. I would use a job request ID or business key, persist the run state, check whether the same work was already completed, and make database updates conditional or transactional where possible. For file creation or external calls, I would use a stable idempotency key and record the outcome. This is especially important because distributed systems can retry after a transient failure.
+
+### Q16. What would you improve for an even longer-running or higher-volume job?
+
+**Answer:**
+
+> I would first measure where time is being spent: data retrieval, stored procedures, file generation, or external API calls. Then I would consider splitting independent work into durable activities, processing records in safe batches, using controlled parallelism, checkpointing progress, and making each batch idempotent. I would also review database query plans and network timeouts. I would not add parallelism blindly because it can overload Oracle or create contention.
+
+### Q17. What happens if the Function App restarts while a Durable job is running?
+
+**Answer:**
+
+> Durable Functions persist the orchestration history and state in Azure Storage. When the host becomes available again, the Durable runtime can resume the orchestration from its stored history. Activities must still be designed carefully because an in-progress external operation may need idempotency protection if it is retried.
+
+### Q18. What was your contribution to the modernization project?
+
+**Answer:**
+
+> My contribution was to support the migration of legacy batch-processing workloads to .NET 8 Azure Functions using the Durable Functions pattern. I worked on API-triggered orchestration, status tracking, processor integration, structured logging, testing, and production troubleshooting. I also investigated the Oracle timeout issue using evidence from application logs, Azure-hosted behavior, and Oracle session checks, which narrowed the issue to the infrastructure network path.
+
+## 9. Questions to ask the interviewer
+
+Use one or two of these at the end of an interview:
+
+- How are long-running or scheduled workloads implemented in your team today?
+- What is your approach to observability and correlation across APIs, batch jobs, and external systems?
+- How do you handle idempotency and retries for jobs that update business data?
+- Which operational metrics matter most for your batch-processing workloads: completion time, error rate, throughput, or data reconciliation?
+- What are the main modernization challenges the team is solving this year?
 
 ---
 
-## 9. Quick vocabulary cheat-sheet
+## 10. Quick vocabulary cheat-sheet
 
 - **Orchestrator** — coordinates workflow steps, must be deterministic, no direct I/O.
 - **Activity** — does the actual work (DB calls, HTTP calls, business logic).
