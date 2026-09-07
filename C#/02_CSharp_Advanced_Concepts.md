@@ -465,7 +465,62 @@ and business rules that return true or false.
 | `Action`      | Returns nothing | Pass logic that performs work       | Logging, notification, object configuration      |
 | `Predicate`   | Returns `bool`  | Pass a true/false condition         | Validation, filtering, permission checks         |
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public delegate int MathOperation(int firstNumber, int secondNumber);
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        MathOperation operation = Add;
+        Console.WriteLine(operation(10, 5));
+
+        operation = Multiply;
+        Console.WriteLine(operation(10, 5));
+    }
+
+    public static int Add(int firstNumber, int secondNumber)
+    {
+        return firstNumber + secondNumber;
+    }
+
+    public static int Multiply(int firstNumber, int secondNumber)
+    {
+        return firstNumber * secondNumber;
+    }
+}
+```
+
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        List<int> numbers = new List<int> { 1, 2, 3, 4, 5 };
+
+        IEnumerable<int> evenNumbers = numbers.Where(number => number % 2 == 0);
+
+        numbers.Add(6);
+
+        foreach (int number in evenNumbers)
+        {
+            Console.WriteLine(number);
+        }
+    }
+}
+```
 
 ## 2. What are events in C#?
 
@@ -515,6 +570,47 @@ orderService.PlaceOrder("ORD-1001");
 ### Interview Deep Point
 
 Events protect the publisher. Subscribers can add or remove handlers, but they cannot directly raise the event.
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        OrderService orderService = new OrderService();
+        EmailService emailService = new EmailService();
+
+        orderService.OrderPlaced += emailService.SendConfirmation;
+        orderService.PlaceOrder("ORD-1001");
+    }
+}
+
+public class OrderService
+{
+    public event Action<string> OrderPlaced;
+
+    public void PlaceOrder(string orderId)
+    {
+        Console.WriteLine($"Order {orderId} placed.");
+
+        if (OrderPlaced != null)
+        {
+            OrderPlaced(orderId);
+        }
+    }
+}
+
+public class EmailService
+{
+    public void SendConfirmation(string orderId)
+    {
+        Console.WriteLine($"Email sent for order {orderId}.");
+    }
+}
+```
 
 ---
 
@@ -627,6 +723,46 @@ Use the smallest interface that matches your need:
 - Use `IList<T>` when index access matters.
 
 This improves abstraction and prevents unnecessary dependency on implementation details.
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Collections.Generic;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        List<string> students = new() { "Asha", "Ravi", "John" };
+        IEnumerable<string> readableStudents = students;
+        ICollection<string> editableStudents = students;
+        IList<string> indexedStudents = students;
+
+        editableStudents.Add("Meena");
+        Console.WriteLine(string.Join(", ", readableStudents));
+        Console.WriteLine(editableStudents.Count);
+        Console.WriteLine(indexedStudents[0]);
+    }
+}
+```
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Linq;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        var numbers = new[] { 1, 2, 3, 4, 5 };
+        var evenNumbers = numbers.Where(number => number % 2 == 0);
+        Console.WriteLine(string.Join(", ", evenNumbers));
+    }
+}
+```
 
 ---
 
@@ -795,6 +931,23 @@ Deferred execution is powerful, but it can cause bugs when:
 
 Use `ToList()` or `ToArray()` when you need a snapshot.
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Linq;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        var numbers = new[] { 1, 2, 3, 4, 5 };
+        var query = numbers.Where(number => number % 2 == 0);
+        Console.WriteLine(string.Join(", ", query));
+    }
+}
+```
+
 ---
 
 ## 5. What is the difference between `IEnumerable` and `IQueryable`?
@@ -841,6 +994,51 @@ var filtered = await dbContext.Customers
 ```
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Collections.Generic;
+using System.Linq;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        List<Customer> customers = new List<Customer>
+        {
+            new Customer { Name = "Asha", City = "Chennai" },
+            new Customer { Name = "Ravi", City = "Bangalore" },
+            new Customer { Name = "Meena", City = "Chennai" }
+        };
+
+        IEnumerable<Customer> enumerableCustomers = customers;
+        var filteredInMemory = enumerableCustomers.Where(customer => customer.City == "Chennai");
+
+        IQueryable<Customer> queryableCustomers = customers.AsQueryable();
+        var query = queryableCustomers.Where(customer => customer.City == "Chennai");
+
+        Console.WriteLine("IEnumerable result:");
+        foreach (Customer customer in filteredInMemory)
+        {
+            Console.WriteLine(customer.Name);
+        }
+
+        Console.WriteLine("IQueryable result:");
+        foreach (Customer customer in query)
+        {
+            Console.WriteLine(customer.Name);
+        }
+    }
+}
+
+public class Customer
+{
+    public string Name { get; set; }
+    public string City { get; set; }
+}
+```
 
 ## 6. What are generics in C#?
 
@@ -913,44 +1111,138 @@ Common constraints:
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Box<string> nameBox = new Box<string>("Asha");
+        Box<int> numberBox = new Box<int>(100);
+
+        Console.WriteLine(nameBox.Value);
+        Console.WriteLine(numberBox.Value);
+    }
+}
+
+public class Box<T>
+{
+    public T Value { get; set; }
+
+    public Box(T value)
+    {
+        Value = value;
+    }
+}
+```
+
 ## 7. What are covariance and contravariance?
 
 ### Answer
 
-Covariance and contravariance describe how generic types behave with inheritance.
+Covariance and contravariance describe whether a generic interface or delegate can be safely converted when its type argument has an inheritance relationship.
 
-Simple meaning:
-
-- **Covariance** lets you use a more derived type where a base type is expected.
-- **Contravariance** lets you use a less derived type where a derived type is expected.
-
-### Covariance Example
+Assume this inheritance relationship:
 
 ```csharp
-IEnumerable<string> names = new List<string> { "Asha", "Ravi" };
-IEnumerable<object> objects = names;
+class Animal { }
+class Dog : Animal { }
 ```
 
-This works because `IEnumerable<out T>` is covariant. It only returns `T`; it does not accept `T` as input.
+The easiest memory aid is:
 
-### Contravariance Example
+- **Covariance (`out`)**: a **producer**. It produces values, so a producer of `Dog` can be used as a producer of `Animal`.
+- **Contravariance (`in`)**: a **consumer**. It consumes values, so a consumer of `Animal` can be used as a consumer of `Dog`.
+
+The direction looks opposite because the safety requirement is different:
+
+```text
+Covariance:       Dog  -> Animal     (more specific output becomes general output)
+Contravariance:   Animal -> Dog      (general input can handle specific input)
+```
+
+### Covariance: `out` and producers
+
+`IEnumerable<T>` is covariant because it only gives values to the caller. The caller can safely treat every `Dog` as an `Animal`:
 
 ```csharp
-Action<object> printObject = value => Console.WriteLine(value);
-Action<string> printString = printObject;
-
-printString("Hello");
+IEnumerable<Dog> dogs = new List<Dog>();
+IEnumerable<Animal> animals = dogs; // Safe: every Dog is an Animal.
 ```
 
-This works because `Action<in T>` is contravariant. It accepts `T` as input.
+The reverse is not safe:
 
-### Interview Deep Point
+```csharp
+IEnumerable<Animal> animals = new List<Animal>();
+// IEnumerable<Dog> dogs = animals; // Not safe: an Animal might not be a Dog.
+```
 
-- `out` means the type is returned from members.
-- `in` means the type is passed into members.
-- Variance works for interfaces and delegates, not classes.
+### Contravariance: `in` and consumers
+
+`Action<T>` is contravariant because it accepts values. A method that can handle **any** `Animal` can safely handle a `Dog`:
+
+```csharp
+Action<Animal> describeAnimal = animal => Console.WriteLine("Animal received");
+Action<Dog> describeDog = describeAnimal; // Safe: the method accepts every Dog.
+
+describeDog(new Dog());
+```
+
+The reverse is not safe:
+
+```csharp
+Action<Dog> describeDog = dog => Console.WriteLine("Dog received");
+// Action<Animal> describeAnimal = describeDog; // Not safe: the method cannot handle every Animal.
+```
+
+### Interview deep point
+
+- `out` means the type parameter is used as output, so the generic type is usually a producer.
+- `in` means the type parameter is used as input, so the generic type is usually a consumer.
+- Variance applies to compatible interfaces and delegates, such as `IEnumerable<out T>` and `Action<in T>`; it does not make classes like `List<Dog>` assignable to `List<Animal>`.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Collections.Generic;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        IEnumerable<Dog> dogs = new List<Dog> { new Dog() };
+        IEnumerable<Animal> animals = dogs;
+
+        foreach (Animal animal in animals)
+        {
+            Console.WriteLine(animal.Name);
+        }
+
+        Action<Animal> printAnimal = animal => Console.WriteLine($"Received {animal.Name}");
+        Action<Dog> printDog = printAnimal;
+        printDog(new Dog());
+    }
+}
+
+public class Animal
+{
+    public string Name { get; set; } = "Animal";
+}
+
+public class Dog : Animal
+{
+    public Dog()
+    {
+        Name = "Dog";
+    }
+}
+```
 
 ## 8. What is the difference between value types and reference types?
 
@@ -995,6 +1287,37 @@ Do not say "value types are always stored on stack and reference types are alway
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        int firstNumber = 10;
+        int secondNumber = firstNumber;
+        secondNumber = 20;
+
+        Console.WriteLine($"First number: {firstNumber}");
+        Console.WriteLine($"Second number: {secondNumber}");
+
+        Person firstPerson = new Person { Name = "Asha" };
+        Person secondPerson = firstPerson;
+        secondPerson.Name = "Ravi";
+
+        Console.WriteLine($"First person: {firstPerson.Name}");
+        Console.WriteLine($"Second person: {secondPerson.Name}");
+    }
+}
+
+public class Person
+{
+    public string Name { get; set; }
+}
+```
+
 ## 9. What is boxing and unboxing?
 
 ### Answer
@@ -1036,6 +1359,27 @@ Generics help avoid boxing for value types. That is one reason `List<int>` is be
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        int number = 100;
+
+        object boxedNumber = number;
+        int unboxedNumber = (int)boxedNumber;
+
+        Console.WriteLine($"Original number: {number}");
+        Console.WriteLine($"Boxed number: {boxedNumber}");
+        Console.WriteLine($"Unboxed number: {unboxedNumber}");
+    }
+}
+```
+
 ## 10. What is the difference between `Task`, `Thread`, and `ThreadPool`?
 
 ### Answer
@@ -1046,15 +1390,52 @@ Generics help avoid boxing for value types. That is one reason `List<int>` is be
 | `ThreadPool` | A managed pool of reusable background threads             |
 | `Task`       | A higher-level abstraction representing asynchronous work |
 
-### Example Using Task
+### Beginner-friendly explanation
+
+Think of a `Task` as a **tracking ticket for work**:
+
+- The work may still be running, or it may already be finished.
+- The `Task` tells us when the work finishes.
+- A `Task<T>` also carries the result of the work, such as `Task<int>` carrying an `int`.
+- `await` means: "pause this method until the task finishes, without blocking the thread."
+
+The task is not the result itself. For example, `Task<int>` means "an `int` that will be available later". After `await`, we get the actual `int`.
+
+### Example with `Task<T>`
 
 ```csharp
-Task<int> task = Task.Run(() =>
+static async Task<int> AddNumbersAsync()
 {
+    await Task.Delay(1000); // Pretend we are waiting for an external operation.
     return 10 + 20;
-});
+}
 
-int result = await task;
+Task<int> pendingResult = AddNumbersAsync();
+Console.WriteLine("The work has started...");
+
+int result = await pendingResult;
+Console.WriteLine(result); // 30
+```
+
+Here is the sequence:
+
+1. `AddNumbersAsync()` starts and returns a `Task<int>`.
+2. The caller can do other work while the one-second delay is in progress.
+3. `await pendingResult` waits asynchronously for completion.
+4. `result` receives the actual integer value, `30`.
+
+### `Task` without a result
+
+Use `Task` when the operation finishes but does not return a value:
+
+```csharp
+static async Task SaveDataAsync()
+{
+    await Task.Delay(500);
+    Console.WriteLine("Data saved");
+}
+
+await SaveDataAsync();
 ```
 
 ### Interview Deep Point
@@ -1063,9 +1444,42 @@ Use `Task` and `async/await` for most modern C# asynchronous code. Directly crea
 
 ### Important Clarification
 
-`async` does not always mean a new thread is created. For I/O operations like database calls or HTTP calls, the thread is released while waiting.
+`async` does not always mean a new thread is created. For I/O operations like database calls or HTTP calls, the thread is released while waiting. `Task.Run` is mainly useful for moving CPU-heavy work to a thread-pool thread; it is not required for every asynchronous method.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Console.WriteLine("Main started");
+
+        Thread thread = new Thread(PrintFromThread);
+        thread.Start();
+        thread.Join();
+
+        ThreadPool.QueueUserWorkItem(_ => Console.WriteLine("Work from ThreadPool"));
+
+        Task task = Task.Run(() => Console.WriteLine("Work from Task"));
+        task.Wait();
+
+        Thread.Sleep(500);
+        Console.WriteLine("Main ended");
+    }
+
+    public static void PrintFromThread()
+    {
+        Console.WriteLine("Work from Thread");
+    }
+}
+```
 
 ## 11. What is the difference between CPU-bound and I/O-bound work?
 
@@ -1096,11 +1510,190 @@ For ASP.NET Core applications, using `Task.Run` around database or HTTP calls is
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        RunAsync().GetAwaiter().GetResult();
+    }
+
+    public static async Task RunAsync()
+    {
+        int cpuResult = await Task.Run(() => CalculateLargeTotal());
+        Console.WriteLine($"CPU-bound result: {cpuResult}");
+
+        string ioResult = await GetDataFromApiAsync();
+        Console.WriteLine($"I/O-bound result: {ioResult}");
+    }
+
+    public static int CalculateLargeTotal()
+    {
+        int total = 0;
+
+        for (int number = 1; number <= 100000; number++)
+        {
+            total += number;
+        }
+
+        return total;
+    }
+
+    public static async Task<string> GetDataFromApiAsync()
+    {
+        await Task.Delay(1000);
+        return "Data received";
+    }
+}
+```
+
 ## 12. What is a deadlock in async code?
 
 ### Answer
 
 A deadlock can happen when code blocks on an async operation using `.Result` or `.Wait()` instead of using `await`.
+
+Beginner-friendly meaning: `.Result` and `.Wait()` force the current thread to stop and wait until the async task finishes. `await` also waits, but it waits without blocking the thread.
+
+Think of it like this:
+
+```text
+await     = wait asynchronously; the thread is free to do other work
+.Result   = wait synchronously and get the returned value
+.Wait()   = wait synchronously when there is no returned value
+```
+
+### Then Why Do `.Result` and `.Wait()` Exist?
+
+Yes, they have a purpose. They exist because sometimes code is synchronous and must wait for a `Task` to finish.
+
+For example, older code, console app entry points before modern C#, test setup code, or third-party APIs may be synchronous. In those cases, `.Result` or `.Wait()` can be used to bridge async code into synchronous code.
+
+But in modern C#, especially in ASP.NET Core, UI apps, and normal application code, prefer `await`.
+
+### Difference Between `.Result` and `.Wait()`
+
+| API       | Used With           | Meaning                                          |
+| --------- | ------------------- | ------------------------------------------------ |
+| `.Result` | `Task<T>`           | Blocks and returns the result value              |
+| `.Wait()` | `Task` or `Task<T>` | Blocks until the task completes, returns nothing |
+
+Example:
+
+```csharp
+Task<int> numberTask = GetNumberAsync();
+int number = numberTask.Result; // Blocks and gives int result.
+
+Task saveTask = SaveAsync();
+saveTask.Wait(); // Blocks until save is completed.
+```
+
+### Ready-to-Run Online Compiler Example
+
+Paste this directly into Programiz C# Online Compiler.
+
+```csharp
+using System;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Console.WriteLine("Program started");
+
+        Task<int> numberTask = GetNumberAsync();
+
+        int number = numberTask.Result;
+        Console.WriteLine($"Result from .Result: {number}");
+
+        Task messageTask = PrintMessageAsync();
+
+        messageTask.Wait();
+        Console.WriteLine("PrintMessageAsync completed using .Wait()");
+
+        Console.WriteLine("Program ended");
+    }
+
+    public static async Task<int> GetNumberAsync()
+    {
+        await Task.Delay(1000);
+        return 100;
+    }
+
+    public static async Task PrintMessageAsync()
+    {
+        await Task.Delay(1000);
+        Console.WriteLine("Message from async method");
+    }
+}
+```
+
+Output:
+
+```text
+Program started
+Result from .Result: 100
+Message from async method
+PrintMessageAsync completed using .Wait()
+Program ended
+```
+
+What this program shows:
+
+- `.Result` is used with `Task<int>` because the async method returns an integer.
+- `.Wait()` is used with `Task` because the async method does not return a value.
+- Both block the `Main` method until the async work is completed.
+- This is okay for learning in a simple console program, but it is not the preferred pattern in real API or UI code.
+
+### Ready-to-Run Preferred Version Using `await`
+
+If your compiler supports `async Task Main`, this is the better modern version.
+
+```csharp
+using System;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static async Task Main(string[] args)
+    {
+        Console.WriteLine("Program started");
+
+        int number = await GetNumberAsync();
+        Console.WriteLine($"Result from await: {number}");
+
+        await PrintMessageAsync();
+        Console.WriteLine("PrintMessageAsync completed using await");
+
+        Console.WriteLine("Program ended");
+    }
+
+    public static async Task<int> GetNumberAsync()
+    {
+        await Task.Delay(1000);
+        return 100;
+    }
+
+    public static async Task PrintMessageAsync()
+    {
+        await Task.Delay(1000);
+        Console.WriteLine("Message from async method");
+    }
+}
+```
+
+Simple learning point:
+
+```text
+Use .Result and .Wait() to understand their purpose.
+Use await in real modern application code whenever possible.
+```
 
 ### Problem Example
 
@@ -1133,9 +1726,162 @@ Callers should also use `await`:
 string name = await GetCustomerNameAsync();
 ```
 
+### Why Can `.Result` or `.Wait()` Cause Deadlock?
+
+Some application types, especially older ASP.NET and UI apps like WPF or WinForms, have a synchronization context.
+
+Simple meaning: they have a special thread where code wants to continue running after `await`.
+
+Problem flow:
+
+```text
+1. The main thread calls .Result and becomes blocked.
+2. The async method finishes its waiting operation.
+3. The async method tries to continue on the original main thread.
+4. But the main thread is blocked by .Result.
+5. Both sides wait for each other. This is a deadlock.
+```
+
+### Bad Example in API or UI Code
+
+```csharp
+public IActionResult GetCustomer(int id)
+{
+    Customer customer = customerService.GetCustomerAsync(id).Result;
+
+    return Ok(customer);
+}
+```
+
+Better:
+
+```csharp
+public async Task<IActionResult> GetCustomer(int id)
+{
+    Customer customer = await customerService.GetCustomerAsync(id);
+
+    return Ok(customer);
+}
+```
+
+### When Not to Use `.Result` or `.Wait()`
+
+Avoid them in:
+
+- ASP.NET Core controllers, services, middleware, and repositories.
+- UI applications such as WPF, WinForms, MAUI, and Blazor UI code.
+- Any async method where you can use `await`.
+- High-traffic server code, because blocking threads reduces scalability.
+- Code that calls database, HTTP, file, or external service operations.
+
+Bad pattern:
+
+```csharp
+public async Task ProcessOrderAsync()
+{
+    Order order = orderRepository.GetOrderAsync(10).Result; // Avoid this.
+
+    await paymentService.ProcessAsync(order);
+}
+```
+
+Better:
+
+```csharp
+public async Task ProcessOrderAsync()
+{
+    Order order = await orderRepository.GetOrderAsync(10);
+
+    await paymentService.ProcessAsync(order);
+}
+```
+
+### When Can `.Result` or `.Wait()` Be Acceptable?
+
+Use them only when you are at a truly synchronous boundary and cannot make the caller async.
+
+Example: old synchronous `Main` method.
+
+```csharp
+public static void Main()
+{
+    RunAsync().Wait();
+}
+
+public static async Task RunAsync()
+{
+    await Task.Delay(1000);
+    Console.WriteLine("Finished");
+}
+```
+
+Modern better version:
+
+```csharp
+public static async Task Main()
+{
+    await RunAsync();
+}
+```
+
+Another acceptable case can be a short console tool or migration script where there is no async entry point available and no synchronization context. Even then, prefer `GetAwaiter().GetResult()` over `.Result` if you must block, because it usually gives cleaner exception behavior.
+
+```csharp
+string data = GetDataAsync().GetAwaiter().GetResult();
+```
+
+### Exception Difference
+
+`.Result` and `.Wait()` can wrap exceptions inside `AggregateException`.
+
+```csharp
+try
+{
+    string data = GetDataAsync().Result;
+}
+catch (AggregateException ex)
+{
+    Console.WriteLine(ex.InnerException?.Message);
+}
+```
+
+With `await`, you usually get the original exception directly.
+
+```csharp
+try
+{
+    string data = await GetDataAsync();
+}
+catch (HttpRequestException ex)
+{
+    Console.WriteLine(ex.Message);
+}
+```
+
+### Simple Rule
+
+| Situation                                     | Best Choice                          |
+| --------------------------------------------- | ------------------------------------ |
+| Inside an async method                        | Use `await`                          |
+| ASP.NET Core API code                         | Use `await`                          |
+| UI application code                           | Use `await`                          |
+| Need result from `Task<T>`                    | Use `await task`                     |
+| Need to wait for `Task` with no result        | Use `await task`                     |
+| Old synchronous boundary and cannot change it | Blocking may be acceptable carefully |
+| Modern console app                            | Use `async Task Main()`              |
+
+### Beginner-Friendly Interview Answer
+
+```text
+.Result and .Wait() exist because sometimes synchronous code needs to wait for a Task.
+.Result blocks and returns the value from Task<T>. .Wait() only blocks until completion.
+But in application code, especially APIs and UI apps, they should usually be avoided because
+they block threads and can cause deadlocks. The preferred approach is async all the way using await.
+```
+
 ### Interview Deep Point
 
-The common rule is: async all the way. Avoid mixing blocking calls with asynchronous code.
+The common rule is: async all the way. Avoid mixing blocking calls with asynchronous code. If you must block at a synchronous boundary, keep it isolated at the edge of the application and do not spread `.Result` or `.Wait()` through services and repositories.
 
 ---
 
@@ -1167,6 +1913,28 @@ public async Task<string> GetDataAsync()
 - In ASP.NET Core, there is generally no classic synchronization context, so it is less critical than in older ASP.NET or UI apps.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        string result = GetDataAsync().GetAwaiter().GetResult();
+        Console.WriteLine(result);
+    }
+
+    public static async Task<string> GetDataAsync()
+    {
+        await Task.Delay(1000).ConfigureAwait(false);
+        return "Data loaded without capturing context";
+    }
+}
+```
 
 ## 14. What is cancellation in async programming?
 
@@ -1201,6 +1969,43 @@ Cancellation is cooperative. Passing a token does not forcefully kill the operat
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        RunAsync().GetAwaiter().GetResult();
+    }
+
+    public static async Task RunAsync()
+    {
+        CancellationTokenSource cancellationTokenSource = new CancellationTokenSource();
+        cancellationTokenSource.CancelAfter(500);
+
+        try
+        {
+            await LongRunningWorkAsync(cancellationTokenSource.Token);
+            Console.WriteLine("Work completed");
+        }
+        catch (OperationCanceledException)
+        {
+            Console.WriteLine("Work was cancelled");
+        }
+    }
+
+    public static async Task LongRunningWorkAsync(CancellationToken cancellationToken)
+    {
+        await Task.Delay(2000, cancellationToken);
+    }
+}
+```
+
 ## 15. What is the garbage collector in .NET?
 
 ### Answer
@@ -1228,6 +2033,38 @@ The **Garbage Collector**, or **GC**, automatically manages memory by removing o
 The GC manages managed memory. It does not automatically release unmanaged resources like file handles, database connections, sockets, or native handles. For those, use `IDisposable` and `using`.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        CreateObjects();
+
+        Console.WriteLine("Objects created");
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        Console.WriteLine("Garbage collection requested");
+    }
+
+    public static void CreateObjects()
+    {
+        for (int count = 1; count <= 1000; count++)
+        {
+            Person person = new Person { Name = "Person " + count };
+        }
+    }
+}
+
+public class Person
+{
+    public string Name { get; set; }
+}
+```
 
 ## 16. What is `IDisposable` and the `using` statement?
 
@@ -1274,6 +2111,38 @@ If your class owns disposable objects, it should usually implement `IDisposable`
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        using (ReportWriter writer = new ReportWriter())
+        {
+            writer.Write("Report line written");
+        }
+
+        Console.WriteLine("Program completed");
+    }
+}
+
+public class ReportWriter : IDisposable
+{
+    public void Write(string message)
+    {
+        Console.WriteLine(message);
+    }
+
+    public void Dispose()
+    {
+        Console.WriteLine("ReportWriter disposed");
+    }
+}
+```
+
 ## 17. What is reflection in C#?
 
 ### Answer
@@ -1304,6 +2173,33 @@ foreach (PropertyInfo property in type.GetProperties())
 Reflection is powerful but slower than direct code. Use it carefully in performance-sensitive paths. Many frameworks use reflection during startup and cache the results.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Reflection;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Type type = typeof(Customer);
+
+        foreach (PropertyInfo property in type.GetProperties())
+        {
+            Console.WriteLine(property.Name);
+        }
+    }
+}
+
+public class Customer
+{
+    public int Id { get; set; }
+    public string Name { get; set; }
+    public string Email { get; set; }
+}
+```
 
 ## 18. What are attributes in C#?
 
@@ -1342,6 +2238,36 @@ Attributes do not usually execute behavior by themselves. Frameworks read attrib
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Reflection;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        MethodInfo methodInfo = typeof(Calculator).GetMethod("OldAdd");
+        ObsoleteAttribute obsoleteAttribute = (ObsoleteAttribute)Attribute.GetCustomAttribute(methodInfo, typeof(ObsoleteAttribute));
+
+        if (obsoleteAttribute != null)
+        {
+            Console.WriteLine(obsoleteAttribute.Message);
+        }
+    }
+}
+
+public class Calculator
+{
+    [Obsolete("Use NewAdd instead.")]
+    public int OldAdd(int firstNumber, int secondNumber)
+    {
+        return firstNumber + secondNumber;
+    }
+}
+```
+
 ## 19. What are expression trees?
 
 ### Answer
@@ -1373,6 +2299,34 @@ Expression<Func<Customer, bool>> expression = customer => customer.City == "Chen
 This is why some C# methods cannot be translated by EF Core. EF must understand the expression tree and convert it to SQL. If it cannot translate the expression, the query may fail or move evaluation to memory depending on the EF Core version and query shape.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Linq.Expressions;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Expression<Func<Customer, bool>> expression = customer => customer.City == "Chennai";
+
+        Console.WriteLine(expression);
+
+        Func<Customer, bool> compiledExpression = expression.Compile();
+        Customer customer = new Customer { Name = "Asha", City = "Chennai" };
+
+        Console.WriteLine(compiledExpression(customer));
+    }
+}
+
+public class Customer
+{
+    public string Name { get; set; }
+    public string City { get; set; }
+}
+```
 
 ## 20. What is the difference between `ref`, `out`, and `in` parameters?
 
@@ -1413,9 +2367,118 @@ public decimal CalculateTax(in decimal amount)
 }
 ```
 
+### Ready-to-Run Example
+
+Copy the whole block below, delete everything in the Programiz editor, paste this, and click **Run**. It also works on dotnetfiddle.net and replit without changes.
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Console.WriteLine("--- ref ---");
+
+        // ref: the variable MUST already have a value before the call
+        int score = 10;
+        Console.WriteLine($"Before: score = {score}");
+        AddBonus(ref score);
+        Console.WriteLine($"After:  score = {score}");
+
+        Console.WriteLine();
+        Console.WriteLine("--- out ---");
+
+        // out: the variable does NOT need a value before the call
+        int parsedAge;
+        bool success = TryGetAge("25", out parsedAge);
+        Console.WriteLine($"Input \"25\"  -> success = {success}, age = {parsedAge}");
+
+        bool failed = TryGetAge("abc", out int invalidAge);
+        Console.WriteLine($"Input \"abc\" -> success = {failed}, age = {invalidAge}");
+
+        Console.WriteLine();
+        Console.WriteLine("--- in ---");
+
+        // in: passed by reference, but the method cannot change it
+        decimal price = 1000m;
+        decimal tax = CalculateTax(in price);
+        Console.WriteLine($"Before: price = {price}");
+        Console.WriteLine($"Tax calculated = {tax}");
+        Console.WriteLine($"After:  price = {price} (unchanged)");
+    }
+
+    public static void AddBonus(ref int number)
+    {
+        number += 5;
+    }
+
+    public static bool TryGetAge(string input, out int age)
+    {
+        // an out parameter must be assigned on every path before returning
+        if (int.TryParse(input, out int result))
+        {
+            age = result;
+            return true;
+        }
+
+        age = 0;
+        return false;
+    }
+
+    public static decimal CalculateTax(in decimal amount)
+    {
+        // amount = 2000m; // uncomment to see the compile error for 'in'
+        return amount * 0.18m;
+    }
+}
+```
+
+### Output
+
+```text
+--- ref ---
+Before: score = 10
+After:  score = 15
+
+--- out ---
+Input "25"  -> success = True, age = 25
+Input "abc" -> success = False, age = 0
+
+--- in ---
+Before: price = 1000
+Tax calculated = 180.00
+After:  price = 1000 (unchanged)
+```
+
+### What the Example Proves
+
+| Line in the example                 | What it shows                                                  |
+| ----------------------------------- | -------------------------------------------------------------- |
+| `int score = 10;` before `AddBonus` | `ref` requires the variable to be initialized first            |
+| `score` changes from 10 to 15       | `ref` lets the method update the caller's variable             |
+| `int parsedAge;` with no value      | `out` does not require initialization before the call          |
+| `age = 0;` in the failure path      | `out` must be assigned on every path before the method returns |
+| Commented `amount = 2000m;`         | `in` is readonly, so assigning to it does not compile          |
+| `price` still prints `1000`         | `in` passes by reference but the caller's value cannot change  |
+
+### Try This to See the Rules Fail
+
+Small experiments make the differences stick:
+
+1. Change `int score = 10;` to `int score;` and run. You get a compile error, because `ref` needs a value first.
+2. Uncomment `amount = 2000m;` inside `CalculateTax`. You get a compile error, because `in` is readonly.
+3. Delete `age = 0;` from `TryGetAge`. You get a compile error, because `out` must be assigned before returning.
+
 ### Interview Deep Point
 
 Use these only when they improve clarity or performance. Overusing them can make APIs harder to understand.
+
+A practical rule:
+
+- Use `out` for "try" methods that return a result plus a success flag, like `int.TryParse`.
+- Use `ref` when the method genuinely updates a caller's existing value.
+- Use `in` mainly for large readonly structs, where it avoids copying without allowing changes.
 
 ---
 
@@ -1449,6 +2512,28 @@ var updated = first with { Email = "new@example.com" };
 Records are good for DTOs, configuration values, messages, and immutable data. They are not always ideal for entities with identity and lifecycle behavior, such as EF Core domain entities.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        CustomerDto first = new CustomerDto(1, "Asha", "asha@example.com");
+        CustomerDto second = new CustomerDto(1, "Asha", "asha@example.com");
+
+        Console.WriteLine(first.Equals(second));
+
+        CustomerDto updated = first with { Email = "new@example.com" };
+        Console.WriteLine(updated.Email);
+    }
+}
+
+public record CustomerDto(int Id, string Name, string Email);
+```
 
 ## 22. What is pattern matching in C#?
 
@@ -1492,6 +2577,44 @@ Pattern matching can reduce long `if` chains and make business rules easier to r
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Customer customer = new Customer
+        {
+            IsPremium = true,
+            YearsActive = 6
+        };
+
+        decimal discount = GetDiscount(customer);
+        Console.WriteLine($"Discount: {discount}");
+    }
+
+    public static decimal GetDiscount(Customer customer)
+    {
+        return customer switch
+        {
+            { IsPremium: true, YearsActive: >= 5 } => 0.20m,
+            { IsPremium: true } => 0.10m,
+            { YearsActive: >= 3 } => 0.05m,
+            _ => 0m
+        };
+    }
+}
+
+public class Customer
+{
+    public bool IsPremium { get; set; }
+    public int YearsActive { get; set; }
+}
+```
+
 ## 23. What is `yield return`?
 
 ### Answer
@@ -1522,9 +2645,146 @@ foreach (int number in GetEvenNumbers(10))
 }
 ```
 
+### Ready-to-Run Example
+
+Copy the whole block below, delete everything in the Programiz editor, paste this, and click **Run**.
+
+The trick to understanding `yield return` is to print from **inside** the method. Then you can see exactly when the producer runs.
+
+```csharp
+using System;
+using System.Collections.Generic;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Console.WriteLine("--- 1. Calling the method runs nothing ---");
+        IEnumerable<int> numbers = GetEvenNumbers(10);
+        Console.WriteLine("Method was called, but nothing was produced yet.");
+
+        Console.WriteLine();
+        Console.WriteLine("--- 2. Producer and consumer take turns ---");
+        foreach (int number in numbers)
+        {
+            Console.WriteLine($"   Consumed: {number}");
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("--- 3. Breaking early stops the producer ---");
+        foreach (int number in GetEvenNumbers(10))
+        {
+            Console.WriteLine($"   Consumed: {number}");
+
+            if (number >= 4)
+            {
+                Console.WriteLine("   Breaking out now.");
+                break;
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("--- 4. A normal List does all the work first ---");
+        foreach (int number in GetEvenNumbersAsList(10))
+        {
+            Console.WriteLine($"   Consumed: {number}");
+        }
+    }
+
+    public static IEnumerable<int> GetEvenNumbers(int max)
+    {
+        for (int number = 1; number <= max; number++)
+        {
+            if (number % 2 == 0)
+            {
+                Console.WriteLine($"Produced: {number}");
+                yield return number;
+            }
+        }
+    }
+
+    public static List<int> GetEvenNumbersAsList(int max)
+    {
+        List<int> result = new List<int>();
+
+        for (int number = 1; number <= max; number++)
+        {
+            if (number % 2 == 0)
+            {
+                Console.WriteLine($"Produced: {number}");
+                result.Add(number);
+            }
+        }
+
+        return result;
+    }
+}
+```
+
+### Output
+
+```text
+--- 1. Calling the method runs nothing ---
+Method was called, but nothing was produced yet.
+
+--- 2. Producer and consumer take turns ---
+Produced: 2
+   Consumed: 2
+Produced: 4
+   Consumed: 4
+Produced: 6
+   Consumed: 6
+Produced: 8
+   Consumed: 8
+Produced: 10
+   Consumed: 10
+
+--- 3. Breaking early stops the producer ---
+Produced: 2
+   Consumed: 2
+Produced: 4
+   Consumed: 4
+   Breaking out now.
+
+--- 4. A normal List does all the work first ---
+Produced: 2
+Produced: 4
+Produced: 6
+Produced: 8
+Produced: 10
+   Consumed: 2
+   Consumed: 4
+   Consumed: 6
+   Consumed: 8
+   Consumed: 10
+```
+
+### What the Example Proves
+
+| Part | What it shows                                                                 |
+| ---- | ----------------------------------------------------------------------------- |
+| 1    | Calling the method does not run the body. Nothing is produced until you loop. |
+| 2    | `Produced` and `Consumed` alternate, so values are created one at a time.     |
+| 3    | Breaking early means 6, 8, and 10 are never produced. Work is skipped.        |
+| 4    | With a `List`, every value is produced first, then consumed. No overlap.      |
+
+Part 3 is the real benefit. If producing each value were expensive, such as reading a file line by line or calling an API, `yield return` would let you stop early without paying for the rest.
+
+### Beginner-Friendly Meaning
+
+```text
+Normal method  = cook the whole meal, then serve it
+yield return   = cook one dish, serve it, cook the next only if asked
+```
+
 ### Interview Deep Point
 
 `yield return` creates an iterator. It is lazy, meaning values are produced only when requested. This can save memory for large sequences.
+
+Two things to be careful about:
+
+- The sequence restarts from the beginning each time you enumerate it, so looping twice does the work twice.
+- Because the body runs later, exceptions surface during the `foreach`, not when the method is called.
 
 ---
 
@@ -1557,6 +2817,25 @@ It is useful in high-performance code, parsing, buffers, and avoiding allocation
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        int[] numbers = { 1, 2, 3, 4, 5 };
+        Span<int> middle = numbers.AsSpan(1, 3);
+
+        middle[0] = 20;
+
+        Console.WriteLine(numbers[1]);
+    }
+}
+```
+
 ## 25. What are extension methods?
 
 ### Answer
@@ -1585,6 +2864,30 @@ Extension methods are static methods called using instance method syntax. LINQ m
 Use them to improve readability, but avoid hiding important business logic in too many scattered extension methods.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        string name = "  Asha  ";
+
+        Console.WriteLine(name.TrimAndUpper());
+    }
+}
+
+public static class StringExtensions
+{
+    public static string TrimAndUpper(this string value)
+    {
+        return value.Trim().ToUpper();
+    }
+}
+```
 
 ## 26. What is the difference between shallow copy and deep copy?
 
@@ -1628,6 +2931,55 @@ Console.WriteLine(original.Address.City); // Bangalore
 In a shallow copy, both objects share the same nested `Address`. In a deep copy, the nested `Address` would also be copied.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Employee original = new Employee
+        {
+            Name = "Asha",
+            Address = new Address { City = "Chennai" }
+        };
+
+        Employee shallowCopy = new Employee
+        {
+            Name = original.Name,
+            Address = original.Address
+        };
+
+        Employee deepCopy = new Employee
+        {
+            Name = original.Name,
+            Address = new Address { City = original.Address.City }
+        };
+
+        shallowCopy.Address.City = "Bangalore";
+
+        Console.WriteLine($"Original after shallow copy change: {original.Address.City}");
+
+        deepCopy.Address.City = "Hyderabad";
+        Console.WriteLine($"Original after deep copy change: {original.Address.City}");
+        Console.WriteLine($"Deep copy city: {deepCopy.Address.City}");
+    }
+}
+
+public class Employee
+{
+    public string Name { get; set; }
+    public Address Address { get; set; }
+}
+
+public class Address
+{
+    public string City { get; set; }
+}
+```
 
 ## 27. What is dependency injection in C#?
 
@@ -1678,6 +3030,51 @@ DI improves testability, maintainability, and separation of concerns. In ASP.NET
 Be careful not to inject a scoped service into a singleton because it can cause lifetime issues.
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        IEmailService emailService = new EmailService();
+        OrderService orderService = new OrderService(emailService);
+
+        orderService.PlaceOrder("ORD-1001");
+    }
+}
+
+public interface IEmailService
+{
+    void Send(string message);
+}
+
+public class EmailService : IEmailService
+{
+    public void Send(string message)
+    {
+        Console.WriteLine(message);
+    }
+}
+
+public class OrderService
+{
+    private readonly IEmailService emailService;
+
+    public OrderService(IEmailService emailService)
+    {
+        this.emailService = emailService;
+    }
+
+    public void PlaceOrder(string orderId)
+    {
+        emailService.Send($"Email sent for {orderId}");
+    }
+}
+```
 
 ## 28. What is the difference between `lock`, `Monitor`, `Mutex`, and `SemaphoreSlim`?
 
@@ -1732,6 +3129,52 @@ Do not use `await` inside a `lock` block. Use `SemaphoreSlim` for async coordina
 
 ---
 
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+
+public class HelloWorld
+{
+    private static readonly object syncRoot = new object();
+    private static int counter = 0;
+    private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+
+    public static void Main(string[] args)
+    {
+        IncrementWithLock();
+        Console.WriteLine($"Counter after lock: {counter}");
+
+        RunAsync().GetAwaiter().GetResult();
+    }
+
+    public static void IncrementWithLock()
+    {
+        lock (syncRoot)
+        {
+            counter++;
+        }
+    }
+
+    public static async Task RunAsync()
+    {
+        await semaphore.WaitAsync();
+
+        try
+        {
+            counter++;
+            Console.WriteLine($"Counter after SemaphoreSlim: {counter}");
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+}
+```
+
 ## 29. What is immutability and why is it useful?
 
 ### Answer
@@ -1770,6 +3213,35 @@ public record Money(decimal Amount, string Currency);
 ```
 
 ---
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Money price = new Money(100, "INR");
+
+        Console.WriteLine($"Amount: {price.Amount}");
+        Console.WriteLine($"Currency: {price.Currency}");
+    }
+}
+
+public class Money
+{
+    public decimal Amount { get; }
+    public string Currency { get; }
+
+    public Money(decimal amount, string currency)
+    {
+        Amount = amount;
+        Currency = currency;
+    }
+}
+```
 
 ## 30. What are nullable reference types?
 
@@ -1831,3 +3303,37 @@ Use case: Where I used it or where it is useful.
 Example: Small code or real scenario.
 Deep point: Performance, design tradeoff, or common mistake.
 ```
+
+### Ready-to-Run Online Compiler Example
+
+```csharp
+using System;
+
+public class HelloWorld
+{
+    public static void Main(string[] args)
+    {
+        Customer customer = new Customer
+        {
+            Name = "Asha",
+            MiddleName = null
+        };
+
+        Console.WriteLine(customer.Name);
+
+        if (customer.MiddleName == null)
+        {
+            Console.WriteLine("Middle name is not available");
+        }
+    }
+}
+
+public class Customer
+{
+    public string Name { get; set; }
+    public string MiddleName { get; set; }
+}
+```
+
+---
+

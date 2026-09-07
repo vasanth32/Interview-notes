@@ -21,4 +21,4 @@
 -API gateway 
 -Azure functions 
 -Explain Root Cause Analysis (RCA) approach. 
--
+-covariance and contravariance
