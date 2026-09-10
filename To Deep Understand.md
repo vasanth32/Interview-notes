@@ -12,9 +12,10 @@ Azure Microservices Security POC
 - Identity – OAuth 2.0, Microsoft Entra ID, JWT
 - Service-to-Service Authentication – Managed Identity
 - Secrets – Azure Key Vault
+- Network Security – VNet / Private Endpoint / NSG
 - Messaging – Azure Service Bus
 - Monitoring – Application Insights / Azure Monitor
-- Network Security – VNet / Private Endpoint / NSG
+
 
 Worked in Project
 
