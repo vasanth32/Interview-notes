@@ -1887,3 +1887,1071 @@ If you remember only one thing:
 > **"The Function and Oracle were still running, but the Envoy sidecar was closing the TCP connection at the one-hour mark, so we excluded the Oracle ports from Envoy interception."**
 
 That is the **root cause → fix** you should be able to explain confidently.
+
+---
+
+Yes. Let's treat this as **we actually created a small POC to prove the Saga + Outbox approach**. I’ll explain the architecture, components, flow, failure handling, and what you would see during testing. No code.
+
+> **Important:** Your OSP project material describes Saga, Outbox, event-driven communication, and idempotent handlers. The following is a POC-style explanation of how those pieces fit together, without claiming specific implementation details that aren't in the project file.
+
+# 1. What are we trying to prove with the POC?
+
+We want to prove this scenario:
+
+```text
+Student enrolls in Football
+          ↓
+Enrollment created
+          ↓
+Seat reserved
+          ↓
+Fee calculated
+          ↓
+Everything successful
+```
+
+And more importantly:
+
+```text
+Student enrolls
+      ↓
+Enrollment created       ✅
+      ↓
+Seat reserved            ✅
+      ↓
+Fee calculation          ❌
+      ↓
+Can we recover safely?
+```
+
+The POC demonstrates that **we can recover from a failure without leaving incorrect business data behind**.
+
+---
+
+# 2. POC architecture
+
+We can keep the POC very small.
+
+### Services
+
+```text
+┌──────────────────────┐
+│ Enrollment Service   │
+│ .NET Web API         │
+└──────────┬───────────┘
+           │
+           │ HTTP / Event
+           ↓
+┌──────────────────────┐
+│ Activity Service     │
+│ .NET Web API         │
+└──────────────────────┘
+
+           │
+           │ Event
+           ↓
+┌──────────────────────┐
+│ Fee Service          │
+│ .NET Web API         │
+└──────────────────────┘
+```
+
+Each service has its own database:
+
+```text
+Enrollment Service → Enrollment DB
+
+Activity Service   → Activity DB
+
+Fee Service        → Fee DB
+```
+
+And we introduce a message broker:
+
+```text
+Services
+   ↓
+Message Broker
+   ↓
+Other Services
+```
+
+For the POC, you could use something like:
+
+- .NET 8
+- ASP.NET Core Web API
+- EF Core
+- SQL Server
+- RabbitMQ or Azure Service Bus
+- Docker
+- Postman for testing
+
+The project material lists RabbitMQ/Azure Service Bus as possible messaging infrastructure.
+
+---
+
+# 3. First POC — without Saga
+
+Before implementing Saga, I'd actually demonstrate the problem.
+
+Imagine we have:
+
+```text
+Enrollment DB
+Activity DB
+Fee DB
+```
+
+We call:
+
+```text
+POST /enroll
+```
+
+The flow is:
+
+```text
+Client
+  ↓
+Enrollment Service
+  ↓
+Create Enrollment
+  ↓
+Activity Service
+  ↓
+Reserve Seat
+  ↓
+Fee Service
+  ↓
+Calculate Fee
+```
+
+Now intentionally make Fee Service fail.
+
+For example:
+
+```text
+Enrollment       ✅
+Activity Seat    ✅
+Fee              ❌
+```
+
+Look at the databases:
+
+```text
+Enrollment DB
+-------------------
+Enrollment = 1001
+
+
+Activity DB
+-------------------
+Seat = Reserved
+
+
+Fee DB
+-------------------
+Fee = Not Created
+```
+
+That's our problem.
+
+The POC clearly demonstrates:
+
+> **There is no single transaction that can rollback all three databases.**
+
+---
+
+# 4. Now introduce Saga
+
+Now we introduce the Saga concept.
+
+The Saga maintains the business workflow:
+
+```text
+Step 1
+Create Enrollment
+
+      ↓
+
+Step 2
+Reserve Seat
+
+      ↓
+
+Step 3
+Calculate Fee
+```
+
+Every step is a **local transaction**.
+
+Meaning:
+
+```text
+Enrollment Service
+     ↓
+BEGIN
+Create enrollment
+COMMIT
+```
+
+Then:
+
+```text
+Activity Service
+     ↓
+BEGIN
+Reserve seat
+COMMIT
+```
+
+Then:
+
+```text
+Fee Service
+     ↓
+BEGIN
+Calculate fee
+COMMIT
+```
+
+There is no global database transaction.
+
+---
+
+# 5. Who controls the Saga?
+
+For understanding the POC, I recommend using an **Orchestrator**.
+
+Think of the orchestrator as a coordinator.
+
+```text
+             Saga Orchestrator
+                    |
+       ┌────────────┼────────────┐
+       ↓            ↓            ↓
+ Enrollment      Activity       Fee
+ Service         Service       Service
+```
+
+It basically says:
+
+> "Do this first."
+
+Then:
+
+> "Okay, that succeeded. Now do this."
+
+Then:
+
+> "That succeeded too. Now do the next one."
+
+---
+
+# 6. Step-by-step successful flow
+
+Let's say:
+
+```text
+StudentId = 501
+ActivityId = 10
+```
+
+The client sends:
+
+```text
+Enroll Student 501
+in Activity 10
+```
+
+---
+
+## Step 1 — Create Saga
+
+The orchestrator creates something like:
+
+```text
+SagaId = SAGA-1001
+```
+
+This ID is important because we can track the complete workflow.
+
+Conceptually:
+
+```text
+SAGA-1001
+
+Status = Started
+```
+
+---
+
+# 7. Step 2 — Create Enrollment
+
+Orchestrator tells Enrollment Service:
+
+```text
+Create enrollment
+Student = 501
+Activity = 10
+SagaId = SAGA-1001
+```
+
+Enrollment Service performs its local transaction.
+
+```text
+Enrollment DB
+
+EnrollmentId | Student | Activity | Status
+------------------------------------------------
+1001         | 501     | 10       | Pending
+```
+
+Transaction commits.
+
+Then:
+
+```text
+Create Enrollment
+       ↓
+SUCCESS
+```
+
+---
+
+# 8. Step 3 — Reserve activity capacity
+
+Orchestrator now calls Activity Service:
+
+```text
+Reserve seat
+Activity = 10
+SagaId = SAGA-1001
+```
+
+Activity Service checks:
+
+```text
+Maximum capacity = 30
+Current = 29
+```
+
+One seat is available.
+
+It changes:
+
+```text
+Current = 30
+```
+
+and commits its local transaction.
+
+```text
+Reserve Seat
+     ↓
+SUCCESS
+```
+
+---
+
+# 9. Step 4 — Calculate fee
+
+Now orchestrator calls Fee Service:
+
+```text
+Calculate fee
+Student = 501
+Activity = 10
+SagaId = SAGA-1001
+```
+
+Fee Service calculates:
+
+```text
+Activity fee = $100
+```
+
+and stores it.
+
+```text
+Calculate Fee
+      ↓
+SUCCESS
+```
+
+Now the Saga is complete.
+
+```text
+Enrollment     ✅
+Seat           ✅
+Fee            ✅
+```
+
+Final state:
+
+```text
+Enrollment = Confirmed
+Seat = Reserved
+Fee = $100
+```
+
+---
+
+# 10. Now the important POC — force a failure
+
+This is where the POC becomes useful.
+
+We intentionally configure Fee Service:
+
+```text
+FAIL_FEE_SERVICE = true
+```
+
+Now run the exact same enrollment.
+
+Flow:
+
+```text
+Create Enrollment
+       ↓
+      ✅
+       ↓
+Reserve Seat
+       ↓
+      ✅
+       ↓
+Calculate Fee
+       ↓
+      ❌
+```
+
+Now the Saga Orchestrator knows:
+
+> Step 3 failed.
+
+---
+
+# 11. What does the Saga do now?
+
+It doesn't execute:
+
+```text
+ROLLBACK
+```
+
+because there is no global transaction.
+
+Instead, it performs **compensation**.
+
+The orchestrator says:
+
+```text
+Fee failed
+   ↓
+Undo previous business operations
+```
+
+---
+
+# 12. Compensation #1 — Release seat
+
+Activity Service receives:
+
+```text
+Release seat
+Activity = 10
+SagaId = SAGA-1001
+```
+
+Before:
+
+```text
+Capacity = 30 / 30
+```
+
+After:
+
+```text
+Capacity = 29 / 30
+```
+
+So:
+
+```text
+Reserve Seat
+     ↓
+Release Seat
+```
+
+---
+
+# 13. Compensation #2 — Cancel enrollment
+
+Now Enrollment Service receives:
+
+```text
+Cancel enrollment
+EnrollmentId = 1001
+SagaId = SAGA-1001
+```
+
+Instead of deleting the record, normally we'd maintain the business history and change status:
+
+```text
+Pending
+   ↓
+Cancelled
+```
+
+So:
+
+```text
+Enrollment = Cancelled
+```
+
+---
+
+# 14. Final state after failure
+
+Now check all databases.
+
+### Enrollment DB
+
+```text
+Enrollment 1001
+Status = Cancelled
+```
+
+### Activity DB
+
+```text
+Seat = Available
+```
+
+### Fee DB
+
+```text
+Fee = Not Created
+```
+
+That's a valid business state.
+
+So even though the overall operation failed:
+
+> **We didn't leave a half-completed enrollment behind.**
+
+That's the key thing we're proving with the POC.
+
+---
+
+# 15. Now where does the Message Broker come in?
+
+Now we make the POC more realistic.
+
+Instead of every operation being tightly coupled through HTTP, we can use events for asynchronous communication.
+
+For example:
+
+```text
+Enrollment Service
+       ↓
+EnrollmentCreated
+       ↓
+Message Broker
+       ↓
+Fee Service
+```
+
+The broker could be:
+
+```text
+RabbitMQ
+```
+
+or:
+
+```text
+Azure Service Bus
+```
+
+The project architecture specifically uses event-driven communication for operations that don't require an immediate response.
+
+---
+
+# 16. Why do we need Outbox?
+
+Here's another failure scenario.
+
+Suppose Enrollment Service does this:
+
+```text
+Save Enrollment
+      ↓
+Publish Event
+```
+
+What if:
+
+```text
+Save Enrollment       ✅
+Publish Event         ❌
+```
+
+Maybe RabbitMQ/Azure Service Bus is temporarily unavailable.
+
+Now:
+
+```text
+Enrollment DB
+   ↓
+Enrollment exists
+
+Message Broker
+   ↓
+Event never arrived
+```
+
+Other services don't know that enrollment was created.
+
+---
+
+# 17. Add Outbox table
+
+We add an Outbox table inside Enrollment DB.
+
+Conceptually:
+
+```text
+Enrollment DB
+----------------------------
+
+Enrollment
+----------------------------
+1001 | Student 501 | Football
+
+
+Outbox
+----------------------------
+EventId
+EventType
+Payload
+Status
+CreatedAt
+```
+
+When enrollment is created, we save **both**:
+
+```text
+Enrollment
++
+EnrollmentCreated event
+```
+
+inside the same local database transaction.
+
+So:
+
+```text
+BEGIN TRANSACTION
+
+Create Enrollment
+       +
+Create Outbox Event
+
+COMMIT
+```
+
+Now either both succeed or both fail.
+
+That's the important part.
+
+---
+
+# 18. Background publisher
+
+Then we have a background process.
+
+It continuously checks:
+
+```text
+Outbox
+```
+
+for unpublished events.
+
+For example:
+
+```text
+Outbox
+
+EventId = E1001
+Status = Pending
+```
+
+Publisher picks it up:
+
+```text
+Outbox
+   ↓
+Publish to RabbitMQ
+   ↓
+SUCCESS
+   ↓
+Mark event as Published
+```
+
+If broker is down:
+
+```text
+Outbox
+   ↓
+Publish
+   ↓
+FAIL
+   ↓
+Keep Pending
+   ↓
+Retry later
+```
+
+So the event isn't lost.
+
+The project POC material describes exactly this Outbox concept: store the event with the local transaction, then have a background process publish it with retry handling.
+
+---
+
+# 19. Now another problem — duplicate events
+
+Suppose:
+
+```text
+Publisher
+   ↓
+Publish Event
+   ↓
+Message Broker receives it ✅
+```
+
+But before the publisher knows that it succeeded, there is a network problem.
+
+It retries.
+
+Now the broker may contain:
+
+```text
+EnrollmentCreated E1001
+EnrollmentCreated E1001
+```
+
+Two messages.
+
+Will Fee Service calculate the fee twice?
+
+That's where **idempotency** comes in.
+
+---
+
+# 20. Idempotent consumer
+
+Fee Service receives:
+
+```text
+EventId = E1001
+```
+
+It checks:
+
+```text
+Have I already processed E1001?
+```
+
+If:
+
+```text
+NO
+```
+
+then process it.
+
+And record:
+
+```text
+ProcessedEvent
+----------------
+E1001
+```
+
+If the same event arrives again:
+
+```text
+E1001
+```
+
+Fee Service checks:
+
+```text
+Already processed?
+```
+
+Answer:
+
+```text
+YES
+```
+
+So it ignores the duplicate.
+
+That's why:
+
+```text
+Outbox      → prevents lost events
+
+Idempotency → handles duplicate events
+
+Saga        → handles business failure
+```
+
+The project material explicitly calls out idempotent event handlers to prevent duplicate processing.
+
+---
+
+# 21. What tools would we use in this POC?
+
+A realistic simple POC could look like:
+
+```text
+.NET 8
+   ↓
+ASP.NET Core Web API
+   ↓
+EF Core
+   ↓
+SQL Server
+```
+
+Messaging:
+
+```text
+RabbitMQ
+```
+
+or:
+
+```text
+Azure Service Bus
+```
+
+Local environment:
+
+```text
+Docker
+```
+
+Testing:
+
+```text
+Postman
+```
+
+Monitoring/debugging:
+
+```text
+Serilog
+Application Insights
+```
+
+The actual project architecture lists these types of technologies and patterns, although the exact POC implementation technology can vary.
+
+---
+
+# 22. What would we actually test in Postman?
+
+### Test 1 — Successful enrollment
+
+```text
+POST /enroll
+```
+
+Expected:
+
+```text
+Enrollment created
+Seat reserved
+Fee calculated
+Status = Confirmed
+```
+
+---
+
+### Test 2 — Fee Service failure
+
+Configure:
+
+```text
+Fee Service = unavailable
+```
+
+Call:
+
+```text
+POST /enroll
+```
+
+Expected:
+
+```text
+Enrollment created       ✅
+Seat reserved            ✅
+Fee calculation          ❌
+       ↓
+Release seat             ✅
+Cancel enrollment        ✅
+```
+
+Final:
+
+```text
+Enrollment = Cancelled
+Seat = Available
+Fee = Not Created
+```
+
+---
+
+### Test 3 — Message broker failure
+
+Stop RabbitMQ.
+
+Then:
+
+```text
+Create Enrollment
+```
+
+Expected:
+
+```text
+Enrollment DB
+     ↓
+Enrollment created
+
+Outbox
+     ↓
+Event stored as Pending
+```
+
+Start RabbitMQ again.
+
+Publisher retries:
+
+```text
+Pending event
+     ↓
+RabbitMQ
+     ↓
+SUCCESS
+```
+
+---
+
+### Test 4 — Duplicate event
+
+Send the same event twice:
+
+```text
+E1001
+E1001
+```
+
+Expected:
+
+```text
+First E1001
+   ↓
+Process
+
+Second E1001
+   ↓
+Already processed
+   ↓
+Ignore
+```
+
+No duplicate fee.
+
+---
+
+# 23. The complete POC picture
+
+This is the mental model I want you to remember:
+
+```text
+                         Client
+                           |
+                           ↓
+                  Saga Orchestrator
+                           |
+             ┌─────────────┼─────────────┐
+             ↓             ↓             ↓
+       Enrollment       Activity         Fee
+        Service          Service        Service
+             |             |              |
+             ↓             ↓              ↓
+        Enrollment      Activity         Fee
+             DB             DB             DB
+             |
+             ↓
+          Outbox
+             |
+             ↓
+      Message Broker
+             |
+       ┌─────┴─────┐
+       ↓           ↓
+ Activity        Fee
+ Service        Service
+```
+
+And the failure path:
+
+```text
+Enrollment
+    ↓
+   ✅
+    ↓
+Activity
+    ↓
+   ✅
+    ↓
+Fee
+    ↓
+   ❌
+    |
+    ↓
+Saga Compensation
+    |
+    ├── Release Activity Seat
+    |
+    └── Cancel Enrollment
+```
+
+---
+
+# 24. What is the actual problem each pattern solves?
+
+This is the **most important part to memorize**:
+
+| Problem                                                      | Pattern                        |
+| ------------------------------------------------------------ | ------------------------------ |
+| Multiple databases cannot share one transaction              | **Saga**                       |
+| Previous successful operations need to be reversed           | **Compensating Transaction**   |
+| Event could be lost between DB update and message publishing | **Outbox**                     |
+| Same event could arrive multiple times                       | **Idempotency**                |
+| Services shouldn't be tightly coupled                        | **Event-driven communication** |
+| Need to coordinate multiple steps                            | **Saga Orchestrator**          |
+
+### One-line mental model
+
+> **Saga manages the workflow, compensation handles failure, Outbox makes events reliable, and idempotency makes retries safe.**
+
+That's the complete story.
