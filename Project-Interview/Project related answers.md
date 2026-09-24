@@ -1,30 +1,116 @@
 # Project Based Answers
 
+## Quick Lookup Cheat Sheet
+
+### Recent project: batch-processing architecture
+
+```text
+Control-M / Timer
+   -> Azure Function
+   -> Durable Function orchestration
+   -> Activity and business services
+   -> Oracle / SQL
+   -> Serilog + Application Insights
+```
+
+| Topic                           | Quick answer                                                                                     |
+| ------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Why Azure Functions?            | Scheduled, event-driven execution with managed hosting and Azure integration.                    |
+| Why Durable Functions?          | Coordinates long-running, multi-step workflows with state, retries, and recovery.                |
+| Function responsibility         | Trigger the job and start or coordinate the workflow.                                            |
+| Service responsibility          | Execute reusable business logic and data processing.                                             |
+| Batch resume                    | Save checkpoints, process chunks, and make operations idempotent.                                |
+| Serilog vs Application Insights | Serilog creates structured application logs; Application Insights stores and analyzes telemetry. |
+| Logs, metrics, traces           | Logs explain events; metrics show numbers and trends; traces show the path and timing.           |
+| Secrets                         | Store passwords in Key Vault; use Managed Identity to access them.                               |
+| Secret rotation                 | Create a new secret version, refresh configuration, test, monitor, then revoke the old value.    |
+
+### Previous project: multi-tenant school platform
+
+```text
+Student / School Admin / Platform Admin portals
+   -> API Gateway
+   -> Identity, School, Student, Activity, Fee, Order, Payment, Notification services
+   -> One database per service
+   -> REST for immediate work; events for asynchronous work
+```
+
+### Distributed-systems patterns
+
+| Problem                                             | Pattern                    |
+| --------------------------------------------------- | -------------------------- |
+| Multiple databases cannot share one transaction     | Saga                       |
+| A completed step must be undone after failure       | Compensating transaction   |
+| Database update succeeds but event publishing fails | Transactional Outbox       |
+| The same event is delivered more than once          | Idempotent consumer        |
+| Services need loose coupling                        | Event-driven communication |
+
+### Security quick answers
+
+- **Authentication:** Who is calling? Use Entra ID and OAuth 2.0.
+- **Authorization:** What can they do? Validate scopes, roles, permissions, and tenant claims.
+- **JWT validation:** Check signature, issuer, audience, expiry, and required scope or role.
+- **Service-to-service calls:** Use Managed Identity where possible, HTTPS, least privilege, and token validation at the receiving API.
+- **API protection:** Use HTTPS, input validation, strict CORS, rate limiting, safe errors, Key Vault, and security scanning.
+
+### Production troubleshooting flow
+
+```text
+Check execution status and duration
+   -> Review exceptions and structured logs
+   -> Compare with a normal run
+   -> Inspect Oracle / SQL / API dependencies
+   -> Check retries, timeouts, CPU, memory, and network changes
+   -> Reproduce the slow component
+```
+
+**Production incident to remember:** A long-running Oracle call failed at approximately 3600 seconds with `ORA-12537`. Function and Oracle command timeouts were ruled out, the local test succeeded, and the cause was an Istio Envoy TCP idle timeout. Excluding Oracle ports `1521`, `1530`, and `1624` from sidecar interception fixed the issue.
+
+### Deployment and CI/CD
+
+```text
+Commit
+   -> Azure DevOps build and tests
+   -> Quality and security scans
+   -> Docker image
+   -> Container registry
+   -> Helm deployment
+   -> AKS Function pod
+   -> Health check and smoke test
+```
+
+### Interview answer formula
+
+```text
+Context -> Design choice -> How it works -> Failure handling -> Monitoring -> Result
+```
+
 ## Index
 
-1. [Explain the Complete Architecture of Your Recent Project](#q1-explain-the-complete-architecture-of-your-recent-project)
-2. [Explain the Previous Project Structure](#explain-the-previous-project-structure)
-3. [Why did you customize ASP.NET Identity?](#why-did-you-customize-aspnet-identity)
-4. [Why Azure Functions Instead of .NET Web API for Batch Jobs?](#q2-why-azure-functions-instead-of-net-web-api-for-batch-jobs)
-5. [Azure Functions vs Web API vs Worker Service](#azure-functions-vs-web-api-vs-worker-service)
-6. [Suppose the batch takes 2 hours. What happens if the Function execution is interrupted?](#suppose-the-batch-takes-2-hours-what-happens-if-the-function-execution-is-interrupted)
-7. [Suppose Your Batch Processes 100,000 Records and Fails After 60,000. How Would You Resume It?](#q3-suppose-your-batch-processes-100000-records-and-fails-after-60000-how-would-you-resume-it)
-8. [Why did you use both Serilog and Application Insights?](#why-did-you-use-both-serilog-and-application-insights-arent-they-doing-the-same-thing)
-9. [What is the difference between logs, metrics, and traces?](#what-is-the-difference-between-logs-metrics-and-traces)
-10. [What exactly would you look at in Application Insights?](#what-exactly-would-you-look-at-in-application-insights)
-11. [How would you investigate a production batch that suddenly takes 3 hours instead of 20 minutes?](#how-would-you-investigate-a-production-batch-that-suddenly-takes-3-hours-instead-of-20-minutes)
-12. [Where do you store database passwords? Why not store them in appsettings.json?](#where-do-you-store-database-passwords-why-not-store-them-in-appsettingsjson)
-13. [How does Azure Function access Key Vault? What is Managed Identity?](#how-does-azure-function-access-key-vault-what-is-managed-identity)
-14. [If multiple batch projects use the same Key Vault, is the identity system-assigned or user-assigned?](#if-multiple-batch-projects-use-the-same-key-vault-is-the-identity-system-assigned-or-user-assigned)
-15. [How do you rotate secrets?](#how-do-you-rotate-secrets)
-16. [Tell me one production issue you personally faced in this project and how you solved it](#tell-me-one-production-issue-you-personally-faced-in-this-project-and-how-you-solved-it)
-17. [Saga and Outbox POC](#1-what-are-we-trying-to-prove-with-the-poc)
-18. [How does Entra ID issue a JWT?](#how-does-entra-id-issue-a-jwt)
-19. [How do you secure a Web API application?](#how-do-you-secure-a-web-api-application)
-20. [How would you secure service-to-service communication?](#how-would-you-secure-service-to-service-communication)
-21. [How does the batch make a real-time call to the Claims Domain API?](#how-does-the-batch-make-a-real-time-call-to-the-claims-domain-api)
-22. [How is the Azure Function deployed?](#how-is-the-azure-function-deployed)
-23. [How did CI/CD work in the previous project?](#how-did-cicd-work-in-the-previous-project)
+1. [Quick Lookup Cheat Sheet](#quick-lookup-cheat-sheet)
+2. [Explain the Complete Architecture of Your Recent Project](#q1-explain-the-complete-architecture-of-your-recent-project)
+3. [Explain the Previous Project Structure](#explain-the-previous-project-structure)
+4. [Why did you customize ASP.NET Identity?](#why-did-you-customize-aspnet-identity)
+5. [Why Azure Functions Instead of .NET Web API for Batch Jobs?](#q2-why-azure-functions-instead-of-net-web-api-for-batch-jobs)
+6. [Azure Functions vs Web API vs Worker Service](#azure-functions-vs-web-api-vs-worker-service)
+7. [Suppose the batch takes 2 hours. What happens if the Function execution is interrupted?](#suppose-the-batch-takes-2-hours-what-happens-if-the-function-execution-is-interrupted)
+8. [Suppose Your Batch Processes 100,000 Records and Fails After 60,000. How Would You Resume It?](#q3-suppose-your-batch-processes-100000-records-and-fails-after-60000-how-would-you-resume-it)
+9. [Why did you use both Serilog and Application Insights?](#why-did-you-use-both-serilog-and-application-insights-arent-they-doing-the-same-thing)
+10. [What is the difference between logs, metrics, and traces?](#what-is-the-difference-between-logs-metrics-and-traces)
+11. [What exactly would you look at in Application Insights?](#what-exactly-would-you-look-at-in-application-insights)
+12. [How would you investigate a production batch that suddenly takes 3 hours instead of 20 minutes?](#how-would-you-investigate-a-production-batch-that-suddenly-takes-3-hours-instead-of-20-minutes)
+13. [Where do you store database passwords? Why not store them in appsettings.json?](#where-do-you-store-database-passwords-why-not-store-them-in-appsettingsjson)
+14. [How does Azure Function access Key Vault? What is Managed Identity?](#how-does-azure-function-access-key-vault-what-is-managed-identity)
+15. [If multiple batch projects use the same Key Vault, is the identity system-assigned or user-assigned?](#if-multiple-batch-projects-use-the-same-key-vault-is-the-identity-system-assigned-or-user-assigned)
+16. [How do you rotate secrets?](#how-do-you-rotate-secrets)
+17. [Tell me one production issue you personally faced in this project and how you solved it](#tell-me-one-production-issue-you-personally-faced-in-this-project-and-how-you-solved-it)
+18. [Saga and Outbox POC](#1-what-are-we-trying-to-prove-with-the-poc)
+19. [How does Entra ID issue a JWT?](#how-does-entra-id-issue-a-jwt)
+20. [How do you secure a Web API application?](#how-do-you-secure-a-web-api-application)
+21. [How would you secure service-to-service communication?](#how-would-you-secure-service-to-service-communication)
+22. [How does the batch make a real-time call to the Claims Domain API?](#how-does-the-batch-make-a-real-time-call-to-the-claims-domain-api)
+23. [How is the Azure Function deployed?](#how-is-the-azure-function-deployed)
+24. [How did CI/CD work in the previous project?](#how-did-cicd-work-in-the-previous-project)
 
 ## Q1: Explain the Complete Architecture of Your Recent Project
 
