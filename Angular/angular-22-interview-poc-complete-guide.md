@@ -86,7 +86,7 @@ HTTP API
 DummyJSON
 ```
 
-DummyJSON provides products, users, carts, posts, todos and authentication endpoints for frontend prototyping. Its product API supports list, search, pagination, categories and simulated POST/PUT/PATCH/DELETE operations. Note that simulated mutations do not permanently change the server data. 
+DummyJSON provides products, users, carts, posts, todos and authentication endpoints for frontend prototyping. Its product API supports list, search, pagination, categories and simulated POST/PUT/PATCH/DELETE operations. Note that simulated mutations do not permanently change the server data.
 
 ---
 
@@ -304,6 +304,32 @@ https://dummyjson.com/products?delay=2000
 
 This is useful for learning loading indicators and RxJS.
 
+## Pause and Verify — Environment and API
+
+No source-code change is required for this checkpoint.
+
+1. Open a terminal in the Angular project folder, the folder that contains `package.json`.
+2. Run:
+
+```bash
+ng serve
+```
+
+3. Wait for `Application bundle generation complete` or another successful compilation message.
+4. Open the URL printed in the terminal, normally `http://localhost:4200`.
+5. Confirm the Angular starter page appears and the terminal shows no compilation error.
+6. In another browser tab, open `https://dummyjson.com/products?limit=1`.
+7. Confirm the response is JSON containing a `products` array with one item.
+
+Expected result:
+
+```text
+Angular page works         -> local application is running
+DummyJSON response works   -> remote practice API is available
+```
+
+Stop and explain why `localhost:4200` and `dummyjson.com` are two separate applications. Do not continue until both URLs work.
+
 ---
 
 # 7. First Practice — Components vs Services
@@ -315,7 +341,7 @@ A component represents a piece of UI.
 Examples:
 
 ```text
-ProductListComponent
+ProductList
 ProductDetailsComponent
 LoginComponent
 DashboardComponent
@@ -435,14 +461,17 @@ ng g c features/users/user-list
 Run:
 
 ```bash
-ng generate service core/services/product
+ng generate service core/services/product --type=service
 ```
 
 You will get something similar to:
 
 ```text
 src/app/core/services/product.service.ts
+src/app/core/services/product.service.spec.ts
 ```
+
+The `--type=service` option gives the file and class unambiguous service names: `product.service.ts` and `ProductService`. Without this option, the concise Angular 22 naming convention may generate `product.ts` with a class named `Product`, which conflicts with the `Product` model.
 
 A service is where we put API-related logic.
 
@@ -510,7 +539,7 @@ src/app/core/models/product-response.ts
 ```
 
 ```typescript
-import { Product } from './product';
+import { Product } from "./product";
 
 export interface ProductResponse {
   products: Product[];
@@ -528,31 +557,36 @@ Because TypeScript can tell us what shape of data we expect.
 
 # 12. Configure HttpClient
 
-In your application bootstrap configuration, import:
+Open:
 
-```typescript
-import { provideHttpClient } from '@angular/common/http';
+```text
+src/app/app.config.ts
 ```
 
-Then add:
+Add this import at the top of that file:
 
 ```typescript
-provideHttpClient()
+import { provideHttpClient } from "@angular/common/http";
 ```
 
-to the application providers.
-
-Conceptually:
+Then add `provideHttpClient()` inside the existing `providers` array in the same file:
 
 ```typescript
-bootstrapApplication(AppComponent, {
-  providers: [
-    provideHttpClient()
-  ]
-});
+import { ApplicationConfig } from "@angular/core";
+import { provideHttpClient } from "@angular/common/http";
+import { provideRouter } from "@angular/router";
+import { routes } from "./app.routes";
+
+export const appConfig: ApplicationConfig = {
+  providers: [provideRouter(routes), provideHttpClient()],
+};
 ```
 
-If your generated Angular 22 project already has `provideHttpClient()` configured, do not add it twice.
+Keep any providers already generated in `app.config.ts`, such as zoneless change detection or global error listeners. Only add `provideHttpClient()` to that existing array; do not replace the other providers.
+
+Do not add `provideHttpClient()` to `product.ts` or `app.ts`. The generated `main.ts` already passes `appConfig` to `bootstrapApplication()`, so no change to `main.ts` is normally required.
+
+If `app.config.ts` already contains `provideHttpClient()`, do not add it twice.
 
 ---
 
@@ -561,26 +595,27 @@ If your generated Angular 22 project already has `provideHttpClient()` configure
 Open:
 
 ```text
-product.service.ts
+src/app/core/services/product.service.ts
 ```
 
-Use:
+Keep Angular's `Injectable` decorator. Angular does not provide a `Service` decorator, so do not use `import { Service }` or `@Service()`.
+
+Replace the entire contents of `src/app/core/services/product.service.ts` with:
 
 ```typescript
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable } from 'rxjs';
-import { ProductResponse } from '../models/product-response';
-import { Product } from '../models/product';
+import { Injectable, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { Observable } from "rxjs";
+import { ProductResponse } from "../models/product-response";
+import { Product } from "../models/product";
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class ProductService {
-
   private http = inject(HttpClient);
 
-  private readonly apiUrl = 'https://dummyjson.com/products';
+  private readonly apiUrl = "https://dummyjson.com/products";
 
   getProducts(): Observable<ProductResponse> {
     return this.http.get<ProductResponse>(this.apiUrl);
@@ -590,6 +625,13 @@ export class ProductService {
     return this.http.get<Product>(`${this.apiUrl}/${id}`);
   }
 }
+```
+
+The two names have different responsibilities:
+
+```text
+Product         -> interface in core/models/product.ts
+ProductService  -> injectable API service in core/services/product.service.ts
 ```
 
 ---
@@ -631,10 +673,9 @@ For a normal HTTP GET, you generally receive one response and then the Observabl
 Example:
 
 ```typescript
-this.productService.getProducts()
-  .subscribe(response => {
-    console.log(response);
-  });
+this.productService.getProducts().subscribe((response) => {
+  console.log(response);
+});
 ```
 
 Think:
@@ -667,30 +708,30 @@ For modern Angular applications, also learn the `async` pipe and signal-based ap
 In `product-list.ts`:
 
 ```typescript
-import { Component, OnInit, inject } from '@angular/core';
-import { ProductService } from '../../../core/services/product.service';
-import { Product } from '../../../core/models/product';
+import { Component, OnInit, inject } from "@angular/core";
+import { ProductService } from "../../../core/services/product.service";
+import { Product } from "../../../core/models/product";
 
 @Component({
-  selector: 'app-product-list',
+  selector: "app-product-list",
   standalone: true,
-  templateUrl: './product-list.html',
-  styleUrl: './product-list.css'
+  templateUrl: "./product-list.html",
+  styleUrl: "./product-list.css",
 })
-export class ProductListComponent implements OnInit {
-
+export class ProductList implements OnInit {
   private productService = inject(ProductService);
 
   products: Product[] = [];
 
   ngOnInit(): void {
-    this.productService.getProducts()
-      .subscribe(response => {
-        this.products = response.products;
-      });
+    this.productService.getProducts().subscribe((response) => {
+      this.products = response.products;
+    });
   }
 }
 ```
+
+Angular 22's concise component naming generates the class as `ProductList`. Check the `export class ...` line in your generated file and use that exact class name in the route below.
 
 Template:
 
@@ -699,20 +740,104 @@ Template:
 
 <div>
   @for (product of products; track product.id) {
-    <div>
-      <h3>{{ product.title }}</h3>
-      <p>{{ product.description }}</p>
-      <strong>${{ product.price }}</strong>
-    </div>
+  <div>
+    <h3>{{ product.title }}</h3>
+    <p>{{ product.description }}</p>
+    <strong>${{ product.price }}</strong>
+  </div>
   }
 </div>
 ```
 
-Run:
+The generated welcome page can hide routed content. In `src/app/app.ts`, keep `RouterOutlet` in the component imports and replace `templateUrl` with this inline template:
+
+```typescript
+import { Component } from "@angular/core";
+import { RouterOutlet } from "@angular/router";
+
+@Component({
+  imports: [RouterOutlet],
+  selector: "app-root",
+  styleUrl: "./app.css",
+  template: "<router-outlet />",
+})
+export class App {}
+```
+
+Before running the application, open `src/app/app.routes.ts` and add a temporary route for the product list:
+
+```typescript
+import { Routes } from "@angular/router";
+
+export const routes: Routes = [
+  {
+    path: "products",
+    loadComponent: () =>
+      import("./features/products/product-list/product-list").then(
+        (component) => component.ProductList,
+      ),
+  },
+  { path: "", redirectTo: "products", pathMatch: "full" },
+];
+```
+
+Keep any routes already present instead of deleting them. Add the `products` route to the existing `routes` array and add the redirect only if the empty path is not already configured.
+
+Run from the project folder:
 
 ```bash
 ng serve
 ```
+
+When the terminal says the application compiled successfully, open:
+
+```text
+http://localhost:4200/products
+```
+
+Because the example also redirects the empty path, `http://localhost:4200` will open the same product list. If Angular reports a different port because `4200` is already in use, open the URL printed in the terminal and append `/products`.
+
+## Pause and Verify — Component, Service, DI and HTTP
+
+Files used:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+src/app/features/products/product-list/product-list.html
+src/app/app.routes.ts
+src/app/app.config.ts
+```
+
+Before running, confirm:
+
+1. `app.config.ts` contains one `provideHttpClient(...)` provider.
+2. `app.routes.ts` contains the `products` route.
+3. `product-list.ts` calls `this.productService.getProducts()` inside `ngOnInit()`.
+4. `product-list.html` contains the `@for` block that displays products.
+
+Now verify:
+
+1. From the project folder, run `ng serve` and keep it running.
+2. Open `http://localhost:4200/products`.
+3. Confirm product titles, descriptions and prices appear.
+4. Press `F12`, open Network, and refresh the page.
+5. Select the request named `products`.
+6. Confirm Method is `GET`, Status is `200`, and Response contains a `products` array.
+
+Expected flow:
+
+```text
+ProductList.ngOnInit()
+  -> ProductService.getProducts()
+  -> HttpClient.get()
+  -> DummyJSON
+  -> response.products
+  -> this.products
+  -> HTML @for block
+```
+
+If the request succeeds but the page is empty, open Console and check that `product-list.ts` assigns `response.products` to `this.products`. Stop and explain why the service performs the HTTP call while the component controls the screen.
 
 ---
 
@@ -788,6 +913,66 @@ when destroyed.
 
 This is much better than memorizing lifecycle definitions.
 
+## Pause and Verify — Lifecycle Hooks
+
+File to edit:
+
+```text
+src/app/features/products/product-list/product-list.ts
+src/app/app.routes.ts
+```
+
+1. Add `OnDestroy` to the Angular import and to the class declaration:
+
+   ```typescript
+   import { Component, OnDestroy, OnInit, inject } from "@angular/core";
+
+   export class ProductList implements OnInit, OnDestroy {
+   ```
+
+2. Keep the existing product-loading code in `ngOnInit()` and add the log:
+
+   ```typescript
+   ngOnInit(): void {
+     console.log("ProductList ngOnInit");
+
+     this.productService.getProducts().subscribe((response) => {
+       this.products = response.products;
+     });
+   }
+
+   ngOnDestroy(): void {
+     console.log("ProductList ngOnDestroy");
+   }
+   ```
+
+3. Generate a small temporary component from the project folder:
+
+   ```bash
+   ng g c features/lifecycle-check
+   ```
+
+4. Open the generated `src/app/features/lifecycle-check/lifecycle-check.ts`, note its exported class name, and add this route to the `routes` array in `app.routes.ts`:
+
+   ```typescript
+   {
+     path: "lifecycle-check",
+     loadComponent: () =>
+       import("./features/lifecycle-check/lifecycle-check").then(
+         (component) => component.LifecycleCheck,
+       ),
+   },
+   ```
+
+   Replace `LifecycleCheck` if the generated `export class` line uses another name.
+
+5. Run `ng serve`, open `/products`, press `F12`, and select Console.
+6. Confirm `ProductList ngOnInit` appears.
+7. Open `/lifecycle-check` in the same tab. Confirm `ProductList ngOnDestroy` appears.
+8. Return to `/products` and confirm `ngOnInit` appears again for the new component instance.
+
+Expected result: entering the route creates the component; navigating to the placeholder route destroys it. After this test, remove the `lifecycle-check` route and generated component folder. Keep the lifecycle methods, but remove the log statements when you no longer need them.
+
 ---
 
 # 19. `pipe()` — Beginner Explanation
@@ -797,9 +982,7 @@ RxJS `pipe()` lets you build a chain of operators that transform, inspect or han
 Example:
 
 ```typescript
-this.productService.getProducts().pipe(
-  map(response => response.products)
-);
+this.productService.getProducts().pipe(map((response) => response.products));
 ```
 
 Think:
@@ -854,7 +1037,7 @@ Product[]
 Use:
 
 ```typescript
-map(response => response.products)
+map((response) => response.products);
 ```
 
 Then:
@@ -890,9 +1073,7 @@ RxJS `filter()` allows an emitted value to continue only when a condition is tru
 Example:
 
 ```typescript
-of(1, 2, 3, 4, 5).pipe(
-  filter(x => x > 3)
-)
+of(1, 2, 3, 4, 5).pipe(filter((x) => x > 3));
 ```
 
 The output is:
@@ -930,10 +1111,10 @@ Example:
 
 ```typescript
 this.productService.getProducts().pipe(
-  tap(response => {
-    console.log('API response:', response);
+  tap((response) => {
+    console.log("API response:", response);
   }),
-  map(response => response.products)
+  map((response) => response.products),
 );
 ```
 
@@ -954,6 +1135,16 @@ Do not use `tap()` as your main transformation operator. Use `map()` for transfo
 
 # 23. Refactor Product Service with `pipe()`
 
+This refactor changes the return type of `getProducts()`. You must update both the service and every component that subscribes to this method.
+
+## Step 1 — Update the service
+
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
 Change:
 
 ```typescript
@@ -973,17 +1164,132 @@ getProducts(): Observable<Product[]> {
 }
 ```
 
-Import:
+Also replace the existing RxJS import:
 
 ```typescript
-import { map, tap } from 'rxjs';
+import { Observable } from "rxjs";
 ```
 
-Now the component receives only:
+with:
+
+```typescript
+import { map, Observable, tap } from "rxjs";
+```
+
+The type flowing out of the service has now changed:
+
+```text
+Before: Observable<ProductResponse>
+After:  Observable<Product[]>
+```
+
+The `map()` operator extracts `response.products`, so subscribers no longer receive the wrapper object containing `products`, `total`, `skip` and `limit`. They receive only the product array.
+
+## Step 2 — Update the subscribing component
+
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Change:
+
+```typescript
+this.productService.getProducts().subscribe((response) => {
+  this.products = response.products;
+});
+```
+
+to:
+
+```typescript
+this.productService.getProducts().subscribe((products) => {
+  this.products = products;
+});
+```
+
+Why? The subscription value is now already:
 
 ```text
 Product[]
 ```
+
+Therefore, `response.products` is invalid after this refactor. TypeScript reports:
+
+```text
+TS2339: Property 'products' does not exist on type 'Product[]'.
+```
+
+Mental flow after the change:
+
+```text
+DummyJSON ProductResponse
+  |
+  v
+map(response => response.products)
+  |
+  v
+Product[]
+  |
+  v
+subscribe(products => this.products = products)
+```
+
+## Pause and Verify — `pipe`, `map`, `filter` and `tap`
+
+Files to edit:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+```
+
+First, confirm `getProducts()` in `product.service.ts` currently looks like this:
+
+```typescript
+getProducts(): Observable<Product[]> {
+  return this.http.get<ProductResponse>(this.apiUrl).pipe(
+    tap(response => console.log("Raw API response:", response)),
+    map(response => response.products)
+  );
+}
+```
+
+Also confirm the subscriber in `product-list.ts` receives the array directly:
+
+```typescript
+this.productService.getProducts().subscribe((products) => {
+  this.products = products;
+});
+```
+
+Now perform the temporary filter experiment:
+
+1. In `product.service.ts`, add a second `map` immediately after `map(response => response.products)`:
+
+   ```typescript
+   getProducts(): Observable<Product[]> {
+     return this.http.get<ProductResponse>(this.apiUrl).pipe(
+       tap(response => console.log("Raw API response:", response)),
+       map(response => response.products),
+       map(products => products.filter(product => product.stock > 50))
+     );
+   }
+   ```
+
+2. Run `ng serve` and open `/products`.
+3. In Console, expand `Raw API response` and note how many products arrived from the API.
+4. On the page, confirm only products with `stock > 50` are displayed.
+5. Change `50` to another number and observe the displayed list change.
+
+Restore the intended code before continuing by deleting the second `map`:
+
+```typescript
+map((response) => response.products);
+```
+
+Stop and explain: `tap` logs the unchanged response, the first RxJS `map` extracts the array, and the second RxJS `map` uses JavaScript `Array.filter` to remove array items.
 
 ---
 
@@ -994,10 +1300,10 @@ Product[]
 Example:
 
 ```typescript
-catchError(error => {
-  console.error('Product API failed', error);
+catchError((error) => {
+  console.error("Product API failed", error);
   return of([]);
-})
+});
 ```
 
 Why return `of([])`?
@@ -1060,28 +1366,25 @@ Then:
 ```typescript
 this.loading = true;
 
-this.productService.getProducts()
-  .subscribe({
-    next: products => {
-      this.products = products;
-      this.loading = false;
-    },
-    error: error => {
-      console.error(error);
-      this.loading = false;
-    }
-  });
+this.productService.getProducts().subscribe({
+  next: (products) => {
+    this.products = products;
+    this.loading = false;
+  },
+  error: (error) => {
+    console.error(error);
+    this.loading = false;
+  },
+});
 ```
 
 Template:
 
 ```html
 @if (loading) {
-  <p>Loading...</p>
-}
-
-@if (!loading) {
-  <p>Products loaded.</p>
+<p>Loading...</p>
+} @if (!loading) {
+<p>Products loaded.</p>
 }
 ```
 
@@ -1111,6 +1414,108 @@ searchProducts(term: string): Observable<Product[]> {
 }
 ```
 
+## Pause and Verify — Error, Loading and Service Search
+
+Files to edit:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+src/app/features/products/product-list/product-list.html
+```
+
+### Test 1 — Loading state with a delayed response
+
+1. In `product.service.ts`, find this line inside `getProducts()`:
+
+   ```typescript
+   return this.http.get<ProductResponse>(this.apiUrl).pipe(
+   ```
+
+2. Temporarily change only that line to:
+
+   ```typescript
+   return this.http
+     .get<ProductResponse>(`${this.apiUrl}?delay=2000`)
+     .pipe(
+   ```
+
+3. In `product-list.ts`, confirm the component has:
+
+   ```typescript
+   loading = false;
+   ```
+
+4. Confirm `ngOnInit()` sets loading before the request and clears it afterward:
+
+   ```typescript
+   ngOnInit(): void {
+     this.loading = true;
+
+     this.productService.getProducts().subscribe({
+       next: (products) => {
+         this.products = products;
+         this.loading = false;
+       },
+       error: (error) => {
+         console.error(error);
+         this.loading = false;
+       },
+     });
+   }
+   ```
+
+5. In `product-list.html`, place this before the product list:
+
+   ```html
+   @if (loading) {
+   <p>Loading...</p>
+   }
+   ```
+
+6. Run `ng serve` and refresh `/products`. Expected result: `Loading...` remains visible for approximately two seconds, then products appear.
+
+### Test 2 — `catchError` fallback
+
+1. In the same HTTP call in `product.service.ts`, temporarily replace the URL with an invalid endpoint:
+
+   ```typescript
+   .get<ProductResponse>("https://dummyjson.com/invalid-products")
+   ```
+
+2. Confirm `getProducts()` ends with:
+
+   ```typescript
+   catchError((error) => {
+     console.error("Failed to load products", error);
+     return of([]);
+   });
+   ```
+
+3. Refresh `/products` and open Console.
+4. Expected result: Console shows `Failed to load products`, the page displays no products, and the application does not crash.
+5. Because `of([])` converts the error into a normal empty-array emission, the subscription's `next` handler runs with `[]`.
+
+### Test 3 — `searchProducts("phone")`
+
+The search input is added later. Test the service temporarily from `product-list.ts` by adding this at the end of `ngOnInit()`:
+
+```typescript
+this.productService.searchProducts("phone").subscribe((products) => {
+  console.log("Temporary phone search:", products);
+});
+```
+
+Refresh `/products`, open Network, and confirm a request ends with `/products/search?q=phone`. Confirm Console shows the matching array.
+
+Before continuing:
+
+1. Restore the normal products call to `this.http.get<ProductResponse>(this.apiUrl)`.
+2. Remove the temporary `searchProducts("phone")` subscription.
+3. Keep the loading UI and `catchError` implementation.
+
+Stop and explain why `catchError` returns `of([])` instead of returning a plain array.
+
 ---
 
 # 28. Reactive Forms
@@ -1121,10 +1526,10 @@ Example:
 
 ```typescript
 productForm = this.fb.group({
-  title: ['', Validators.required],
+  title: ["", Validators.required],
   price: [0, [Validators.required, Validators.min(0)]],
   stock: [0, [Validators.required, Validators.min(0)]],
-  category: ['', Validators.required]
+  category: ["", Validators.required],
 });
 ```
 
@@ -1139,17 +1544,13 @@ This is particularly useful for larger forms, dynamic forms, complex validation 
 In the standalone component:
 
 ```typescript
-import {
-  FormBuilder,
-  ReactiveFormsModule,
-  Validators
-} from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 ```
 
 Add:
 
 ```typescript
-imports: [ReactiveFormsModule]
+imports: [ReactiveFormsModule];
 ```
 
 Then:
@@ -1164,10 +1565,10 @@ private fb = inject(FormBuilder);
 
 ```typescript
 productForm = this.fb.group({
-  title: ['', Validators.required],
+  title: ["", Validators.required],
   price: [0, [Validators.required, Validators.min(0)]],
   stock: [0, [Validators.required, Validators.min(0)]],
-  category: ['', Validators.required]
+  category: ["", Validators.required],
 });
 ```
 
@@ -1175,30 +1576,24 @@ Template:
 
 ```html
 <form [formGroup]="productForm" (ngSubmit)="save()">
-
   <label>Title</label>
-  <input formControlName="title">
+  <input formControlName="title" />
 
-  @if (
-    productForm.controls.title.touched &&
-    productForm.controls.title.invalid
+  @if ( productForm.controls.title.touched && productForm.controls.title.invalid
   ) {
-    <p>Title is required.</p>
+  <p>Title is required.</p>
   }
 
   <label>Price</label>
-  <input type="number" formControlName="price">
+  <input type="number" formControlName="price" />
 
   <label>Stock</label>
-  <input type="number" formControlName="stock">
+  <input type="number" formControlName="stock" />
 
   <label>Category</label>
-  <input formControlName="category">
+  <input formControlName="category" />
 
-  <button type="submit" [disabled]="productForm.invalid">
-    Save
-  </button>
-
+  <button type="submit" [disabled]="productForm.invalid">Save</button>
 </form>
 ```
 
@@ -1236,10 +1631,9 @@ Reactive Forms expose an Observable called `valueChanges`.
 Example:
 
 ```typescript
-this.productForm.controls.title.valueChanges
-  .subscribe(value => {
-    console.log('Title changed:', value);
-  });
+this.productForm.controls.title.valueChanges.subscribe((value) => {
+  console.log("Title changed:", value);
+});
 ```
 
 This is an excellent way to connect Forms with RxJS.
@@ -1252,15 +1646,9 @@ Create a tiny contact form or login form using:
 
 ```html
 <form #loginForm="ngForm">
-  <input
-    name="username"
-    [(ngModel)]="username"
-    required
-  >
+  <input name="username" [(ngModel)]="username" required />
 
-  <button [disabled]="loginForm.invalid">
-    Login
-  </button>
+  <button [disabled]="loginForm.invalid">Login</button>
 </form>
 ```
 
@@ -1287,6 +1675,62 @@ Template-driven forms are simpler for small forms and rely heavily on directives
 Interview answer:
 
 > "I use Template-driven Forms for simple forms where the validation and structure are straightforward. For complex enterprise forms, I prefer Reactive Forms because the form model, validation and value changes are explicitly managed in TypeScript."
+
+## Pause and Verify — Angular Forms
+
+Files to edit:
+
+```text
+src/app/features/products/product-form/product-form.ts
+src/app/features/products/product-form/product-form.html
+src/app/app.routes.ts
+```
+
+### Make the form page reachable
+
+1. Open `product-form.ts` and check its exported class name. Angular 22 may generate `ProductForm`; use the exact name from your file.
+2. Confirm its `@Component` imports contain `ReactiveFormsModule`:
+
+   ```typescript
+   imports: [ReactiveFormsModule],
+   ```
+
+3. Add this temporary route to the `routes` array in `app.routes.ts`, replacing `ProductForm` if your exported class has another name:
+
+   ```typescript
+   {
+     path: "products/form",
+     loadComponent: () =>
+       import("./features/products/product-form/product-form").then(
+         (component) => component.ProductForm,
+       ),
+   },
+   ```
+
+4. Place the reactive form HTML from section 30 in `product-form.html`.
+5. Place `productForm` and `save()` from sections 30–31 inside the class in `product-form.ts`.
+6. To test `valueChanges`, implement `OnInit` and add:
+
+   ```typescript
+   ngOnInit(): void {
+     this.productForm.controls.title.valueChanges.subscribe((value) => {
+       console.log("Title changed:", value);
+     });
+   }
+   ```
+
+### Run and verify
+
+1. Run `ng serve` and open `/products/form`.
+2. Focus and leave the title empty. Confirm `Title is required` appears after the control becomes touched.
+3. Enter `-1` for price or stock. Confirm the Save button remains disabled.
+4. Enter valid values in every required field. Confirm Save becomes enabled.
+5. Click Save and confirm Console displays the form value.
+6. Type several title values and confirm Console logs `Title changed:`.
+
+The template-driven example requires `FormsModule` and a separate template. Do not expect it to work merely by pasting its HTML into this reactive component. Build it as a separate small component when practising section 33.
+
+Stop and explain: the reactive form model and validators are declared in TypeScript, while a template-driven form is mainly configured in HTML.
 
 ---
 
@@ -1375,12 +1819,28 @@ Generate:
 ng g s core/services/auth
 ```
 
-Use:
+Angular 22's concise naming convention normally generates:
+
+```text
+src/app/core/services/auth.ts
+src/app/core/services/auth.spec.ts
+```
+
+The files have different purposes:
+
+```text
+auth.ts       -> AuthService implementation used by the application
+auth.spec.ts  -> unit tests for AuthService
+```
+
+## Step 1 — Update `auth.ts`
+
+Replace the entire contents of `src/app/core/services/auth.ts` with:
 
 ```typescript
-import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap } from 'rxjs';
+import { Injectable, inject } from "@angular/core";
+import { HttpClient } from "@angular/common/http";
+import { BehaviorSubject, Observable, tap } from "rxjs";
 
 export interface LoginResponse {
   id: number;
@@ -1392,49 +1852,116 @@ export interface LoginResponse {
 }
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class AuthService {
-
   private http = inject(HttpClient);
 
-  private userSubject =
-    new BehaviorSubject<LoginResponse | null>(null);
+  private userSubject = new BehaviorSubject<LoginResponse | null>(null);
 
   user$ = this.userSubject.asObservable();
 
   login(username: string, password: string): Observable<LoginResponse> {
-    return this.http.post<LoginResponse>(
-      'https://dummyjson.com/auth/login',
-      {
+    return this.http
+      .post<LoginResponse>("https://dummyjson.com/auth/login", {
         username,
         password,
-        expiresInMins: 30
-      }
-    ).pipe(
-      tap(user => {
-        localStorage.setItem('accessToken', user.accessToken);
-        this.userSubject.next(user);
+        expiresInMins: 30,
       })
-    );
+      .pipe(
+        tap((user) => {
+          localStorage.setItem("accessToken", user.accessToken);
+          this.userSubject.next(user);
+        }),
+      );
   }
 
   logout(): void {
-    localStorage.removeItem('accessToken');
+    localStorage.removeItem("accessToken");
     this.userSubject.next(null);
   }
 
   isLoggedIn(): boolean {
-    return !!localStorage.getItem('accessToken');
+    return !!localStorage.getItem("accessToken");
   }
 
   getToken(): string | null {
-    return localStorage.getItem('accessToken');
+    return localStorage.getItem("accessToken");
   }
 }
 ```
 
+## Step 2 — Update `auth.spec.ts`
+
+The generated test may still import a class named `Auth`. Because the implementation above exports `AuthService`, replace the entire contents of `src/app/core/services/auth.spec.ts` with:
+
+```typescript
+import { TestBed } from "@angular/core/testing";
+import { provideHttpClient } from "@angular/common/http";
+import { provideHttpClientTesting } from "@angular/common/http/testing";
+import { AuthService } from "./auth";
+
+describe("AuthService", () => {
+  let service: AuthService;
+
+  beforeEach(() => {
+    TestBed.configureTestingModule({
+      providers: [provideHttpClient(), provideHttpClientTesting()],
+    });
+
+    service = TestBed.inject(AuthService);
+  });
+
+  it("should be created", () => {
+    expect(service).toBeTruthy();
+  });
+});
+```
+
+The application logic belongs only in `auth.ts`. The spec file should contain tests, not a second copy of the service.
+
 DummyJSON documents the login endpoint and provides a test credential such as `emilys` / `emilyspass`; it returns access and refresh tokens. Use those only for this demo API, not for a real application.
+
+## Pause and Verify — Subject, BehaviorSubject and Auth Service
+
+Files used:
+
+```text
+src/app/core/services/auth.ts
+src/app/core/services/auth.spec.ts
+```
+
+At this stage, the login page is not connected yet. Test the service through its spec file.
+
+1. Confirm `auth.ts` contains:
+
+```typescript
+private userSubject = new BehaviorSubject<LoginResponse | null>(null);
+user$ = this.userSubject.asObservable();
+```
+
+2. Keep the existing `should be created` test in `auth.spec.ts` and add this second test inside `describe("AuthService", ...)`:
+
+```typescript
+it("should expose null as the initial user", (done) => {
+  service.user$.subscribe((user) => {
+    expect(user).toBeNull();
+    done();
+  });
+});
+```
+
+3. From the Angular project folder, run:
+
+```bash
+ng test
+```
+
+4. Confirm both AuthService tests pass.
+5. In `auth.spec.ts`, try typing `service.user$.next(null)`. TypeScript should report that `next` does not exist on `Observable<LoginResponse | null>`. Delete that invalid line afterward.
+6. Run `ng serve` once more and confirm the application compiles without a missing `HttpClient` provider error.
+
+Expected result: `AuthService` can change the private subject internally, while components can only subscribe to the public `user$`. Stop and explain how `asObservable()` protects shared authentication state.
 
 ---
 
@@ -1487,30 +2014,26 @@ ng g interceptor core/interceptors/auth
 Use a functional interceptor:
 
 ```typescript
-import {
-  HttpInterceptorFn
-} from '@angular/common/http';
-import { inject } from '@angular/core';
-import { AuthService } from '../services/auth.service';
+import { HttpInterceptorFn } from "@angular/common/http";
+import { inject } from "@angular/core";
+import { AuthService } from "../services/auth";
 
-export const authInterceptor: HttpInterceptorFn =
-  (req, next) => {
+export const authInterceptor: HttpInterceptorFn = (req, next) => {
+  const authService = inject(AuthService);
+  const token = authService.getToken();
 
-    const authService = inject(AuthService);
-    const token = authService.getToken();
+  if (!token) {
+    return next(req);
+  }
 
-    if (!token) {
-      return next(req);
-    }
+  const clonedRequest = req.clone({
+    setHeaders: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
 
-    const clonedRequest = req.clone({
-      setHeaders: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-
-    return next(clonedRequest);
-  };
+  return next(clonedRequest);
+};
 ```
 
 Important:
@@ -1521,30 +2044,21 @@ HTTP requests are immutable, so you clone the request when you need to modify it
 
 # 40. Register the Interceptor
 
-In application providers:
+Open `src/app/app.config.ts` again. Update the imports in that file:
 
 ```typescript
-import {
-  provideHttpClient,
-  withInterceptors
-} from '@angular/common/http';
+import { provideHttpClient, withInterceptors } from "@angular/common/http";
 
-import {
-  authInterceptor
-} from './app/core/interceptors/auth.interceptor';
+import { authInterceptor } from "./core/interceptors/auth.interceptor";
 ```
 
-Then:
+Replace the existing `provideHttpClient()` entry in the `providers` array with:
 
 ```typescript
-provideHttpClient(
-  withInterceptors([
-    authInterceptor
-  ])
-)
+provideHttpClient(withInterceptors([authInterceptor]));
 ```
 
-Now requests pass through the interceptor.
+Do not keep both versions. There should be only one `provideHttpClient(...)` entry in `app.config.ts`. Now requests pass through the interceptor.
 
 ---
 
@@ -1585,12 +2099,11 @@ Choose functional guard if prompted.
 Example:
 
 ```typescript
-import { inject } from '@angular/core';
-import { CanActivateFn, Router } from '@angular/router';
-import { AuthService } from '../services/auth.service';
+import { inject } from "@angular/core";
+import { CanActivateFn, Router } from "@angular/router";
+import { AuthService } from "../services/auth";
 
 export const authGuard: CanActivateFn = () => {
-
   const authService = inject(AuthService);
   const router = inject(Router);
 
@@ -1598,7 +2111,7 @@ export const authGuard: CanActivateFn = () => {
     return true;
   }
 
-  return router.createUrlTree(['/login']);
+  return router.createUrlTree(["/login"]);
 };
 ```
 
@@ -1611,33 +2124,34 @@ Your route configuration can look conceptually like:
 ```typescript
 export const routes: Routes = [
   {
-    path: '',
-    redirectTo: 'dashboard',
-    pathMatch: 'full'
+    path: "",
+    redirectTo: "dashboard",
+    pathMatch: "full",
   },
 
   {
-    path: 'login',
+    path: "login",
     loadComponent: () =>
-      import('./features/login/login')
-        .then(m => m.LoginComponent)
+      import("./features/login/login").then((m) => m.LoginComponent),
   },
 
   {
-    path: 'dashboard',
+    path: "dashboard",
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/dashboard/dashboard')
-        .then(m => m.DashboardComponent)
+      import("./features/dashboard/dashboard").then(
+        (m) => m.DashboardComponent,
+      ),
   },
 
   {
-    path: 'products',
+    path: "products",
     canActivate: [authGuard],
     loadComponent: () =>
-      import('./features/products/product-list/product-list')
-        .then(m => m.ProductListComponent)
-  }
+      import("./features/products/product-list/product-list").then(
+        (m) => m.ProductList,
+      ),
+  },
 ];
 ```
 
@@ -1656,7 +2170,7 @@ Example:
   path: 'products',
   loadComponent: () =>
     import('./features/products/product-list/product-list')
-      .then(m => m.ProductListComponent)
+      .then(m => m.ProductList)
 }
 ```
 
@@ -1693,8 +2207,8 @@ Form:
 
 ```typescript
 loginForm = this.fb.group({
-  username: ['emilys', Validators.required],
-  password: ['emilyspass', Validators.required]
+  username: ["emilys", Validators.required],
+  password: ["emilyspass", Validators.required],
 });
 ```
 
@@ -1720,6 +2234,53 @@ login(): void {
       }
     });
 }
+```
+
+## Pause and Verify — Login, Guard, Routing and Lazy Loading
+
+Files to check before running:
+
+```text
+src/app/core/services/auth.ts
+src/app/core/interceptors/auth.interceptor.ts
+src/app/core/guards/auth.guard.ts
+src/app/features/login/login.ts
+src/app/features/login/login.html
+src/app/app.config.ts
+src/app/app.routes.ts
+```
+
+### Required wiring
+
+1. In `app.config.ts`, confirm there is exactly one HTTP provider:
+
+```typescript
+provideHttpClient(withInterceptors([authInterceptor]));
+```
+
+2. In `app.routes.ts`, confirm `/login` is unguarded and `/dashboard` is guarded with `canActivate: [authGuard]`.
+3. Open `login.ts`, use its exact exported class name in the lazy route, and confirm it injects `FormBuilder`, `AuthService`, and `Router`.
+4. Confirm `login.html` contains a form connected with `[formGroup]="loginForm"` and `(ngSubmit)="login()"`.
+
+### Run and verify
+
+1. Run `ng serve`.
+2. Open DevTools with `F12`, select Application, expand Local Storage, right-click the application origin, and choose Clear. This removes an old token.
+3. Enter `http://localhost:4200/dashboard` directly.
+4. Expected result: `authGuard` redirects the browser to `/login`.
+5. Submit `emilys` / `emilyspass` on the login form.
+6. In Network, select the `login` request. Confirm Method is `POST` and the response contains `accessToken`.
+7. In Application > Local Storage, confirm the key `accessToken` now exists.
+8. Confirm the browser navigates to `/dashboard`.
+9. Refresh `/dashboard`. Expected result: the guard allows navigation because `isLoggedIn()` finds the stored token.
+
+If a route fails to load, open Console and compare the lazy import path and `.then(...)` class name with the actual generated filename and `export class` declaration.
+
+Stop and explain this order:
+
+```text
+protected navigation -> guard -> login -> API token
+-> localStorage -> guard allows protected navigation
 ```
 
 ---
@@ -1772,7 +2333,7 @@ Interview answer:
 Add:
 
 ```typescript
-searchControl = new FormControl('');
+searchControl = new FormControl("");
 ```
 
 Then:
@@ -1810,7 +2371,7 @@ phone   -> API
 With:
 
 ```typescript
-debounceTime(400)
+debounceTime(400);
 ```
 
 Angular waits until the user stops typing for approximately 400ms before allowing the value through.
@@ -1851,7 +2412,7 @@ Without `distinctUntilChanged`, each value can continue.
 With:
 
 ```typescript
-distinctUntilChanged()
+distinctUntilChanged();
 ```
 
 duplicate consecutive values are ignored.
@@ -1882,28 +2443,26 @@ This is useful with search inputs and filters.
 Your final search pipeline:
 
 ```typescript
-this.searchControl.valueChanges.pipe(
+this.searchControl.valueChanges
+  .pipe(
+    debounceTime(400),
 
-  debounceTime(400),
+    distinctUntilChanged(),
 
-  distinctUntilChanged(),
+    tap((term) => {
+      console.log("Searching:", term);
+    }),
 
-  tap(term => {
-    console.log('Searching:', term);
-  }),
+    switchMap((term) => this.productService.searchProducts(term ?? "")),
 
-  switchMap(term =>
-    this.productService.searchProducts(term ?? '')
-  ),
-
-  catchError(error => {
-    console.error('Search failed:', error);
-    return of([]);
-  })
-
-).subscribe(products => {
-  this.products = products;
-});
+    catchError((error) => {
+      console.error("Search failed:", error);
+      return of([]);
+    }),
+  )
+  .subscribe((products) => {
+    this.products = products;
+  });
 ```
 
 Understand every operator:
@@ -1934,6 +2493,60 @@ subscribe
 ```
 
 This is an excellent interview example.
+
+## Pause and Verify — Search Pipeline
+
+Files to edit:
+
+```text
+src/app/features/products/product-list/product-list.ts
+src/app/features/products/product-list/product-list.html
+```
+
+### Connect the search box
+
+1. In `product-list.ts`, import `FormControl` and `ReactiveFormsModule` from `@angular/forms`.
+2. Add `ReactiveFormsModule` to the component's `imports` array.
+3. Add this property inside the class:
+
+```typescript
+searchControl = new FormControl("");
+```
+
+4. Place the complete search pipeline from section 50 inside `ngOnInit()` after the initial product-loading subscription.
+5. Add the input near the top of `product-list.html`:
+
+```html
+<label for="product-search">Search products</label>
+<input
+  id="product-search"
+  type="search"
+  [formControl]="searchControl"
+  placeholder="Try phone or laptop"
+/>
+```
+
+### Run and verify
+
+1. Run `ng serve`, open `/products`, press `F12`, and select Network.
+2. Type `phone` quickly without pausing between letters.
+3. Wait at least 400 ms. Expected result: one request to `/products/search?q=phone` appears after the pause.
+4. Type `laptop`, pause, and confirm a new request appears and the list changes.
+
+### Verify `distinctUntilChanged` exactly
+
+Temporarily add these lines immediately after the search subscription in `ngOnInit()`:
+
+```typescript
+this.searchControl.setValue("phone");
+this.searchControl.setValue("phone");
+```
+
+Refresh once and inspect Network. Expected result: only one consecutive `phone` search request is made after the debounce period. Remove both temporary `setValue` lines afterward.
+
+To make cancellation easier to observe, temporarily add `?delay=2000` inside `searchProducts()` and type two different terms more than 400 ms apart but less than two seconds apart. The first request should appear cancelled in DevTools and only the latest result should update the list. Restore the normal search URL afterward.
+
+Stop and explain the sequence: `debounceTime` waits, `distinctUntilChanged` removes consecutive duplicates, `tap` observes, `switchMap` keeps the latest search, and `catchError` supplies a fallback.
 
 ---
 
@@ -1966,18 +2579,18 @@ Do NOT use `mergeMap` blindly for search, because old searches can remain active
 Create:
 
 ```typescript
-import { from } from 'rxjs';
-import { mergeMap } from 'rxjs/operators';
+import { from } from "rxjs";
+import { mergeMap } from "rxjs/operators";
 ```
 
 Conceptual example:
 
 ```typescript
-from([1, 2, 3]).pipe(
-  mergeMap(id => this.productService.getProduct(id))
-).subscribe(product => {
-  console.log(product);
-});
+from([1, 2, 3])
+  .pipe(mergeMap((id) => this.productService.getProduct(id)))
+  .subscribe((product) => {
+    console.log(product);
+  });
 ```
 
 Open browser Network tools.
@@ -2023,11 +2636,11 @@ Queued operations
 # 54. Practice `concatMap`
 
 ```typescript
-from([1, 2, 3]).pipe(
-  concatMap(id => this.productService.getProduct(id))
-).subscribe(product => {
-  console.log(product);
-});
+from([1, 2, 3])
+  .pipe(concatMap((id) => this.productService.getProduct(id)))
+  .subscribe((product) => {
+    console.log(product);
+  });
 ```
 
 Observe the Network tab and compare it with `mergeMap`.
@@ -2038,11 +2651,11 @@ Observe the Network tab and compare it with `mergeMap`.
 
 Remember this table:
 
-| Operator | Main idea | Typical use |
-|---|---|---|
-| `switchMap` | Latest wins | Search |
-| `mergeMap` | Run concurrently | Independent requests |
-| `concatMap` | Queue in order | Sequential operations |
+| Operator    | Main idea        | Typical use           |
+| ----------- | ---------------- | --------------------- |
+| `switchMap` | Latest wins      | Search                |
+| `mergeMap`  | Run concurrently | Independent requests  |
+| `concatMap` | Queue in order   | Sequential operations |
 
 The interview question is not only:
 
@@ -2054,6 +2667,69 @@ It is:
 
 Your answer should be based on the business requirement.
 
+## Pause and Verify — Mapping Operator Choice
+
+Temporary practice file:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Do not run `mergeMap` and `concatMap` at the same time. Test one, remove it, and then test the other.
+
+### Test `mergeMap`
+
+1. Add `from` and `mergeMap` to the RxJS import in `product-list.ts`:
+
+   ```typescript
+   import { from, mergeMap } from "rxjs";
+   ```
+
+2. At the end of `ngOnInit()`, temporarily add:
+
+   ```typescript
+   from([1, 2, 3])
+     .pipe(mergeMap((id) => this.productService.getProduct(id)))
+     .subscribe((product) => {
+       console.log("mergeMap product:", product.id);
+     });
+   ```
+
+3. Run `ng serve`, open `/products`, and use Network's filter box to search for `products/`.
+4. Refresh once. Expected result: requests for products 1, 2 and 3 are allowed to run concurrently. Their completion order is not guaranteed.
+5. Remove the temporary block and remove the unused `mergeMap` import.
+
+### Test `concatMap`
+
+1. Import `from` and `concatMap`:
+
+   ```typescript
+   import { concatMap, from } from "rxjs";
+   ```
+
+2. Add this temporary block at the end of `ngOnInit()`:
+
+   ```typescript
+   from([1, 2, 3])
+     .pipe(concatMap((id) => this.productService.getProduct(id)))
+     .subscribe((product) => {
+       console.log("concatMap product:", product.id);
+     });
+   ```
+
+3. Refresh and inspect Network. Expected result: request 2 starts after request 1 completes, and request 3 starts after request 2 completes.
+4. Delete the temporary block and remove the unused imports.
+
+Revisit the search input for `switchMap`: start one delayed search, then start another. Only the latest result should update the list.
+
+Stop and answer aloud:
+
+```text
+switchMap -> latest operation matters
+mergeMap  -> all independent operations may run concurrently
+concatMap -> all operations must run in order
+```
+
 ---
 
 # 56. `shareReplay`
@@ -2061,7 +2737,7 @@ Your answer should be based on the business requirement.
 Suppose multiple components call:
 
 ```typescript
-getProducts()
+getProducts();
 ```
 
 You could accidentally create multiple HTTP requests.
@@ -2071,12 +2747,10 @@ You could accidentally create multiple HTTP requests.
 Example:
 
 ```typescript
-products$ = this.http
-  .get<ProductResponse>(this.apiUrl)
-  .pipe(
-    map(response => response.products),
-    shareReplay({ bufferSize: 1, refCount: true })
-  );
+products$ = this.http.get<ProductResponse>(this.apiUrl).pipe(
+  map((response) => response.products),
+  shareReplay({ bufferSize: 1, refCount: true }),
+);
 ```
 
 Mental model:
@@ -2120,6 +2794,32 @@ getProducts(): Observable<Product[]> {
 
 This is one possible demonstration of caching/sharing.
 
+## Pause and Verify — Shared Product Stream
+
+Files to edit:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+```
+
+1. In `product.service.ts`, confirm `shareReplay` is imported from `rxjs` and `getProducts()` uses the private `products$` field shown in section 57.
+2. In `product-list.ts`, keep the existing first subscription that assigns products to the page.
+3. Immediately after it, temporarily add a second subscription:
+
+   ```typescript
+   this.productService.getProducts().subscribe((products) => {
+     console.log("Second subscriber received:", products.length);
+   });
+   ```
+
+4. Run `ng serve`, open DevTools Network, clear the request list, and refresh `/products` once.
+5. Expected result: Console confirms both subscribers received data, but Network contains only one `GET /products` request.
+6. Press `F5` for a full browser reload. Expected result: one new request appears because reloading creates a new Angular application and service instance.
+7. Remove the temporary second subscription from `product-list.ts`.
+
+Do not remove the `shareReplay` implementation. Stop and explain that it shares/replays data within the current service instance; it is not permanent browser or server storage.
+
 ---
 
 # 58. Signals
@@ -2135,7 +2835,7 @@ count = signal(0);
 Read it:
 
 ```typescript
-count()
+count();
 ```
 
 Update it:
@@ -2147,7 +2847,7 @@ count.set(10);
 Increment:
 
 ```typescript
-count.update(value => value + 1);
+count.update((value) => value + 1);
 ```
 
 Template:
@@ -2180,9 +2880,7 @@ Example:
 price = signal(100);
 quantity = signal(2);
 
-total = computed(() =>
-  this.price() * this.quantity()
-);
+total = computed(() => this.price() * this.quantity());
 ```
 
 Template:
@@ -2205,7 +2903,7 @@ Example:
 
 ```typescript
 effect(() => {
-  console.log('Count:', this.count());
+  console.log("Count:", this.count());
 });
 ```
 
@@ -2256,7 +2954,7 @@ Template:
 
 ```html
 @if (loading()) {
-  <p>Loading...</p>
+<p>Loading...</p>
 }
 ```
 
@@ -2295,7 +2993,7 @@ ProductCardComponent
 Use:
 
 ```typescript
-changeDetection: ChangeDetectionStrategy.OnPush
+changeDetection: ChangeDetectionStrategy.OnPush;
 ```
 
 Example:
@@ -2325,7 +3023,7 @@ Therefore, for Angular 22 you normally do not need to add a special provider jus
 Do NOT blindly add:
 
 ```typescript
-provideZoneChangeDetection()
+provideZoneChangeDetection();
 ```
 
 because that configures ZoneJS-based change detection.
@@ -2353,9 +3051,7 @@ increment() {
 Template:
 
 ```html
-<button (click)="increment()">
-  Count: {{ count() }}
-</button>
+<button (click)="increment()">Count: {{ count() }}</button>
 ```
 
 This works naturally with zoneless Angular because the signal update is a framework-aware notification.
@@ -2380,6 +3076,69 @@ Zoneless
 
 Angular's official documentation describes zoneless as the default from Angular v21 onward.
 
+## Pause and Verify — Signals, OnPush and Zoneless
+
+Use the generated product-card component for this experiment:
+
+```text
+src/app/features/products/product-card/product-card.ts
+src/app/features/products/product-card/product-card.html
+src/app/features/products/product-list/product-list.ts
+src/app/features/products/product-list/product-list.html
+src/app/app.config.ts
+```
+
+If the component does not exist, generate it:
+
+```bash
+ng g c features/products/product-card
+```
+
+### Add a small signal experiment
+
+1. In `product-card.ts`, import `ChangeDetectionStrategy`, `Component`, `computed`, `effect`, and `signal` from `@angular/core`.
+2. Add `changeDetection: ChangeDetectionStrategy.OnPush` to `@Component`.
+3. Add these members inside the class:
+
+   ```typescript
+   price = signal(100);
+   quantity = signal(2);
+   total = computed(() => this.price() * this.quantity());
+
+   constructor() {
+     effect(() => {
+       console.log("Signal total:", this.total());
+     });
+   }
+
+   increaseQuantity(): void {
+     this.quantity.update((value) => value + 1);
+   }
+   ```
+
+4. In `product-card.html`, add:
+
+   ```html
+   <p>Price: {{ price() }}</p>
+   <p>Quantity: {{ quantity() }}</p>
+   <p>Total: {{ total() }}</p>
+   <button type="button" (click)="increaseQuantity()">Increase quantity</button>
+   ```
+
+5. Import `ProductCard` into the `imports` array of `product-list.ts`, using the exact generated class name.
+6. Add `<app-product-card />` near the top of `product-list.html`.
+
+### Run and verify
+
+1. Run `ng serve` and open `/products`.
+2. Click Increase quantity. Expected result: quantity and total update immediately.
+3. Open Console and confirm `Signal total:` logs the recalculated total.
+4. Open `app.config.ts` and confirm you did not add `provideZoneChangeDetection()` for this experiment.
+
+The button test demonstrates signals, `computed`, `effect`, OnPush, and Angular-aware change notification. Passing real product input data into the card is a separate extension; do it only after defining an input and rendering one card per product.
+
+Stop and explain: `signal` owns state, `computed` derives state, `effect` performs a side effect, and OnPush remains compatible with signal updates.
+
 ---
 
 # 66. API Error Handling
@@ -2389,25 +3148,24 @@ You should practice three levels.
 ## Level 1 — Local component handling
 
 ```typescript
-this.productService.getProducts()
-  .subscribe({
-    next: products => {
-      this.products = products;
-    },
-    error: error => {
-      console.error(error);
-      this.errorMessage = 'Unable to load products';
-    }
-  });
+this.productService.getProducts().subscribe({
+  next: (products) => {
+    this.products = products;
+  },
+  error: (error) => {
+    console.error(error);
+    this.errorMessage = "Unable to load products";
+  },
+});
 ```
 
 ## Level 2 — Service/RxJS handling
 
 ```typescript
-catchError(error => {
+catchError((error) => {
   console.error(error);
   return of([]);
-})
+});
 ```
 
 ## Level 3 — HTTP interceptor
@@ -2448,6 +3206,50 @@ Server-side failure
 ```
 
 Your UI should give the user a useful message instead of showing a raw technical exception.
+
+## Pause and Verify — HTTP Error Handling
+
+Files used:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+```
+
+### Test a service fallback
+
+1. In `product.service.ts`, temporarily change only the `getProducts()` URL to:
+
+```typescript
+"https://dummyjson.com/products-does-not-exist";
+```
+
+2. Keep the existing `catchError` that logs the error and returns `of([])`.
+3. Run `ng serve`, open `/products`, and inspect Console and Network.
+4. Expected result: Network shows a failed request, Console logs the technical error, and the page safely receives an empty product list.
+5. Restore the URL to `this.apiUrl` immediately.
+
+### Test a network failure
+
+1. Open DevTools > Network.
+2. Change the throttling dropdown from `No throttling` to `Offline`.
+3. Refresh `/products`.
+4. Expected result: the request fails with status `0` or a network error, and the fallback still prevents an application crash.
+5. Change the dropdown back to `No throttling` and refresh again.
+
+### Test authentication failure later
+
+After `getCurrentUser()` is implemented, place an invalid token in Application > Local Storage:
+
+```text
+accessToken = invalid-token
+```
+
+Call `/auth/me` and inspect the returned status. Restore a valid token by logging in again.
+
+DummyJSON does not reliably provide controlled `403` and `500` responses. At this stage, read and explain those handling branches; test them later with `HttpTestingController` rather than changing unrelated production code.
+
+Stop and explain: a component chooses the user-facing message, a service can provide operation-specific fallback behavior, and an interceptor handles application-wide HTTP concerns.
 
 ---
 
@@ -2512,7 +3314,7 @@ id = 5
 Use:
 
 ```typescript
-route.snapshot.paramMap.get('id')
+route.snapshot.paramMap.get("id");
 ```
 
 for a one-time read.
@@ -2544,8 +3346,8 @@ Call:
 
 ```typescript
 this.productService.addProduct({
-  title: this.productForm.value.title ?? '',
-  price: this.productForm.value.price ?? 0
+  title: this.productForm.value.title ?? "",
+  price: this.productForm.value.price ?? 0,
 });
 ```
 
@@ -2581,6 +3383,76 @@ deleteProduct(id: number): Observable<Product> {
 }
 ```
 
+## Pause and Verify — Product Details and CRUD
+
+Files to edit:
+
+```text
+src/app/core/services/product.service.ts
+src/app/features/products/product-details/product-details.ts
+src/app/features/products/product-details/product-details.html
+src/app/app.routes.ts
+```
+
+### Product details
+
+1. Confirm `product.service.ts` contains `getProduct`, `addProduct`, `updateProduct`, and `deleteProduct` from sections 68–72.
+2. Open `product-details.ts` and use its exact exported class name in the route.
+3. Add this route to `app.routes.ts` after any more-specific product routes such as `products/form`:
+
+   ```typescript
+   {
+     path: "products/:id",
+     loadComponent: () =>
+       import("./features/products/product-details/product-details").then(
+         (component) => component.ProductDetails,
+       ),
+   },
+   ```
+
+4. Place the `ActivatedRoute` and `getProduct(id)` code from section 68 in `product-details.ts`.
+5. Add a minimal template to `product-details.html`:
+
+   ```html
+   @if (product) {
+   <h2>{{ product.title }}</h2>
+   <p>{{ product.description }}</p>
+   <strong>${{ product.price }}</strong>
+   } @else {
+   <p>Loading product...</p>
+   }
+   ```
+
+6. Run `ng serve`, open `/products/1`, and confirm Network shows `GET /products/1` and the page shows product 1.
+7. Open `/products/2` and confirm product 2 appears.
+
+Before calling the API, validate the route value:
+
+```typescript
+const id = Number(this.route.snapshot.paramMap.get("id"));
+
+if (!Number.isInteger(id) || id <= 0) {
+  console.error("Invalid product id");
+  return;
+}
+```
+
+### CRUD methods without a completed form UI
+
+Until buttons and forms are wired, temporarily call one method at a time from `ngOnInit()` in `product-details.ts`. For example:
+
+```typescript
+this.productService
+  .updateProduct(1, { title: "Temporary interview title" })
+  .subscribe((updatedProduct) => {
+    console.log("Temporary update result:", updatedProduct);
+  });
+```
+
+Inspect Network for `PATCH /products/1`, then delete this temporary call. Repeat separately for `addProduct(...)` and `deleteProduct(1)` if you want to inspect POST and DELETE.
+
+Expected result: DummyJSON returns simulated success responses, but a fresh GET does not contain permanent changes. Remove every temporary CRUD call before continuing.
+
 ---
 
 # 73. Practice `map()` with Real Data
@@ -2589,12 +3461,12 @@ Create:
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
-  map(products =>
-    products.map(product => ({
+  map((products) =>
+    products.map((product) => ({
       ...product,
-      displayPrice: `$${product.price}`
-    }))
-  )
+      displayPrice: `$${product.price}`,
+    })),
+  ),
 );
 ```
 
@@ -2615,11 +3487,9 @@ The inner `.map()` transforms elements of the array.
 # 74. Practice `filter()` with Real Data
 
 ```typescript
-products$ = this.productService.getProducts().pipe(
-  map(products =>
-    products.filter(product => product.stock > 0)
-  )
-);
+products$ = this.productService
+  .getProducts()
+  .pipe(map((products) => products.filter((product) => product.stock > 0)));
 ```
 
 Now only products with stock remain.
@@ -2630,15 +3500,9 @@ Now only products with stock remain.
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
-  tap(products =>
-    console.log('Products before filtering:', products)
-  ),
-  map(products =>
-    products.filter(product => product.stock > 0)
-  ),
-  tap(products =>
-    console.log('Products after filtering:', products)
-  )
+  tap((products) => console.log("Products before filtering:", products)),
+  map((products) => products.filter((product) => product.stock > 0)),
+  tap((products) => console.log("Products after filtering:", products)),
 );
 ```
 
@@ -2652,15 +3516,13 @@ Example:
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
-  catchError(error => {
-    console.error('API failed:', error);
+  catchError((error) => {
+    console.error("API failed:", error);
 
-    this.errorMessage.set(
-      'Products could not be loaded.'
-    );
+    this.errorMessage.set("Products could not be loaded.");
 
     return of([]);
-  })
+  }),
 );
 ```
 
@@ -2677,23 +3539,83 @@ Use `finalize()`.
 ```typescript
 this.loading.set(true);
 
-this.productService.getProducts()
-  .pipe(
-    finalize(() => this.loading.set(false))
-  )
+this.productService
+  .getProducts()
+  .pipe(finalize(() => this.loading.set(false)))
   .subscribe({
-    next: products => {
+    next: (products) => {
       this.products = products;
     },
-    error: error => {
+    error: (error) => {
       console.error(error);
-    }
+    },
   });
 ```
 
 The `finalize()` callback runs when the Observable terminates through completion or error.
 
 This is often cleaner than setting loading to false in multiple branches.
+
+## Pause and Verify — Real Data Operators and `finalize`
+
+Files to edit:
+
+```text
+src/app/features/products/product-list/product-list.ts
+src/app/features/products/product-list/product-list.html
+```
+
+Keep these experiments in the component so the service continues to return the original `Product[]` model.
+
+1. In `product-list.ts`, create the stream shown in sections 73–76:
+
+   ```typescript
+   products$ = this.productService.getProducts().pipe(
+     tap((products) => console.log("Before filtering:", products)),
+     map((products) =>
+       products
+         .filter((product) => product.stock > 0)
+         .map((product) => ({
+           ...product,
+           displayPrice: `$${product.price.toFixed(2)}`,
+         })),
+     ),
+     tap((products) => console.log("After filtering:", products)),
+     catchError((error) => {
+       console.error("Display stream failed:", error);
+       return of([]);
+     }),
+   );
+   ```
+
+2. To display this separate practice stream, import `AsyncPipe` from `@angular/common`, add it to component `imports`, and temporarily add this to `product-list.html`:
+
+   ```html
+   @if (products$ | async; as displayProducts) { @for (product of
+   displayProducts; track product.id) {
+   <p>{{ product.title }} - {{ product.displayPrice }}</p>
+   } }
+   ```
+
+3. Run `ng serve` and open `/products`.
+4. Confirm prices use two decimal places and compare the before/after Console arrays.
+
+To verify loading cleanup, keep `finalize` on the subscription that controls `loading`:
+
+```typescript
+this.loading = true;
+
+this.productService
+  .getProducts()
+  .pipe(finalize(() => (this.loading = false)))
+  .subscribe((products) => {
+    this.products = products;
+  });
+```
+
+Test once with the valid service URL and once with a temporary invalid URL. Expected result: `loading` becomes false in both cases. Restore the valid URL, and remove the duplicate practice template/stream if you no longer need it.
+
+Stop and explain: RxJS `map` transforms one emitted array; JavaScript `filter` and `Array.map` transform items inside that array; `finalize` runs when the stream completes or errors.
 
 ---
 
@@ -2720,9 +3642,8 @@ Although not on your original list, learn this because it naturally appears when
 ```typescript
 forkJoin({
   products: this.productService.getProducts(),
-  users: this.userService.getUsers()
-})
-.subscribe(result => {
+  users: this.userService.getUsers(),
+}).subscribe((result) => {
   console.log(result.products);
   console.log(result.users);
 });
@@ -2756,31 +3677,93 @@ Example:
 
 ```typescript
 @Injectable({
-  providedIn: 'root'
+  providedIn: "root",
 })
 export class UserService {
-
   private http = inject(HttpClient);
 
   getUsers(): Observable<UserResponse> {
-    return this.http.get<UserResponse>(
-      'https://dummyjson.com/users'
-    );
+    return this.http.get<UserResponse>("https://dummyjson.com/users");
   }
 
   getUser(id: number): Observable<User> {
-    return this.http.get<User>(
-      `https://dummyjson.com/users/${id}`
-    );
+    return this.http.get<User>(`https://dummyjson.com/users/${id}`);
   }
 
   searchUsers(term: string): Observable<UserResponse> {
     return this.http.get<UserResponse>(
-      `https://dummyjson.com/users/search?q=${encodeURIComponent(term)}`
+      `https://dummyjson.com/users/search?q=${encodeURIComponent(term)}`,
     );
   }
 }
 ```
+
+## Pause and Verify — Dashboard, `forkJoin` and User Service
+
+Files to edit:
+
+```text
+src/app/core/services/user.ts
+src/app/features/dashboard/dashboard.ts
+src/app/features/dashboard/dashboard.html
+src/app/app.routes.ts
+```
+
+1. Put the `UserService` code from section 80 in `user.ts`. Ensure the required `User` and `UserResponse` interfaces exist and are imported.
+2. In `dashboard.ts`, inject `ProductService` and `UserService`.
+3. Add fields for the counts:
+
+   ```typescript
+   productCount = 0;
+   userCount = 0;
+   ```
+
+4. Add this to `ngOnInit()`:
+
+   ```typescript
+   forkJoin({
+     products: this.productService.getProducts(),
+     users: this.userService.getUsers(),
+   }).subscribe({
+     next: (result) => {
+       this.productCount = result.products.length;
+       this.userCount = result.users.users.length;
+     },
+     error: (error) => {
+       console.error("Dashboard load failed", error);
+     },
+   });
+   ```
+
+5. Add to `dashboard.html`:
+
+   ```html
+   <h2>Dashboard</h2>
+   <p>Products: {{ productCount }}</p>
+   <p>Users: {{ userCount }}</p>
+   ```
+
+6. Confirm `app.routes.ts` has a dashboard route using the exact exported dashboard class name.
+7. Run `ng serve`, open `/dashboard`, and inspect Network.
+8. Expected result: `/products` and `/users` can run in parallel; counts update after both complete.
+
+To test failure behavior, temporarily change only the UserService URL to `https://dummyjson.com/users-invalid`. Refresh and confirm `Dashboard load failed` appears. Restore the valid users URL immediately.
+
+To test `getUser(1)` and `searchUsers("John")`, add these temporary subscriptions at the end of dashboard `ngOnInit()`:
+
+```typescript
+this.userService.getUser(1).subscribe((user) => {
+  console.log("Temporary user 1:", user);
+});
+
+this.userService.searchUsers("John").subscribe((response) => {
+  console.log("Temporary user search:", response.users);
+});
+```
+
+Refresh Dashboard. In Network, confirm the URLs end with `/users/1` and `/users/search?q=John`, and inspect both Console results. Remove both temporary subscriptions afterward.
+
+Stop and explain why `forkJoin` is appropriate for HTTP calls that emit once and complete.
 
 ---
 
@@ -2882,17 +3865,16 @@ user$ = this.userSubject.asObservable();
 Navbar:
 
 ```typescript
-this.authService.user$
-  .subscribe(user => {
-    this.user = user;
-  });
+this.authService.user$.subscribe((user) => {
+  this.user = user;
+});
 ```
 
 Better later:
 
 ```html
 @if (authService.user$ | async; as user) {
-  <p>Welcome {{ user.firstName }}</p>
+<p>Welcome {{ user.firstName }}</p>
 }
 ```
 
@@ -2924,6 +3906,63 @@ The goal is not to use every RxJS feature everywhere.
 
 The goal is to understand why you choose each one.
 
+## Pause and Verify — Current User and Shared Auth State
+
+Files to edit:
+
+```text
+src/app/core/services/auth.ts
+src/app/features/dashboard/dashboard.ts
+src/app/features/dashboard/dashboard.html
+```
+
+The navigation bar is added later, so use Dashboard as the first visible consumer of `user$`.
+
+1. Add `getCurrentUser()` from section 82 inside `AuthService` in `auth.ts`.
+2. Add a public method so the service, not a component, updates its private subject:
+
+   ```typescript
+   loadCurrentUser(): Observable<LoginResponse> {
+     return this.getCurrentUser().pipe(
+       tap((user) => this.userSubject.next(user)),
+     );
+   }
+   ```
+
+3. In `dashboard.ts`, expose the stream and load the user:
+
+   ```typescript
+   authService = inject(AuthService);
+   user$ = this.authService.user$;
+
+   ngOnInit(): void {
+     this.authService.loadCurrentUser().subscribe({
+       error: (error) => console.error("Current user failed", error),
+     });
+
+     // Keep the existing dashboard loading code here too.
+   }
+   ```
+
+4. Import `AsyncPipe` from `@angular/common` and add it to the Dashboard component's `imports` array.
+5. Add to `dashboard.html`:
+
+   ```html
+   @if (user$ | async; as user) {
+   <p>Welcome {{ user.firstName }}</p>
+   }
+
+   <button type="button" (click)="authService.logout()">Logout</button>
+   ```
+
+6. Run `ng serve`, log in, and open `/dashboard`.
+7. In Network, select `/auth/me` and inspect Request Headers. Confirm `Authorization: Bearer ...` exists.
+8. Confirm Dashboard displays the user's first name.
+9. Click Logout. Confirm the welcome text disappears and Application > Local Storage no longer contains `accessToken`.
+10. Open `/dashboard` again. The guard should redirect to `/login`.
+
+Important: after a full page refresh, the `BehaviorSubject` starts at `null`; the token survives because it is in Local Storage. `loadCurrentUser()` rebuilds in-memory user state from `/auth/me`.
+
 ---
 
 # 85. Error Interceptor
@@ -2937,43 +3976,35 @@ ng g interceptor core/interceptors/error
 Example:
 
 ```typescript
-export const errorInterceptor: HttpInterceptorFn =
-  (req, next) => {
+export const errorInterceptor: HttpInterceptorFn = (req, next) => {
+  return next(req).pipe(
+    catchError((error) => {
+      if (error.status === 401) {
+        console.error("Unauthorized");
+      }
 
-    return next(req).pipe(
-      catchError(error => {
+      if (error.status === 403) {
+        console.error("Forbidden");
+      }
 
-        if (error.status === 401) {
-          console.error('Unauthorized');
-        }
+      if (error.status === 404) {
+        console.error("Not found");
+      }
 
-        if (error.status === 403) {
-          console.error('Forbidden');
-        }
+      if (error.status >= 500) {
+        console.error("Server error");
+      }
 
-        if (error.status === 404) {
-          console.error('Not found');
-        }
-
-        if (error.status >= 500) {
-          console.error('Server error');
-        }
-
-        return throwError(() => error);
-      })
-    );
-  };
+      return throwError(() => error);
+    }),
+  );
+};
 ```
 
 Register it:
 
 ```typescript
-provideHttpClient(
-  withInterceptors([
-    authInterceptor,
-    errorInterceptor
-  ])
-)
+provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]));
 ```
 
 ---
@@ -3009,6 +4040,49 @@ Component/service
 
 This separation is important.
 
+## Pause and Verify — Error Interceptor
+
+Files to edit:
+
+```text
+src/app/core/interceptors/error.interceptor.ts
+src/app/app.config.ts
+src/app/core/services/product.service.ts
+src/app/features/products/product-list/product-list.ts
+```
+
+1. Put the error interceptor code from section 85 in `error.interceptor.ts` and import `catchError` and `throwError` from `rxjs`.
+2. In `app.config.ts`, replace the existing HTTP provider with exactly one combined provider:
+
+   ```typescript
+   provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]));
+   ```
+
+3. To trigger a controlled `404`, temporarily add this service method to `ProductService`:
+
+   ```typescript
+   testMissingEndpoint(): Observable<unknown> {
+     return this.http.get("https://dummyjson.com/endpoint-does-not-exist");
+   }
+   ```
+
+4. Temporarily call it at the end of `ProductList.ngOnInit()`:
+
+   ```typescript
+   this.productService.testMissingEndpoint().subscribe({
+     error: (error) => {
+       console.error("Component received rethrown error", error);
+     },
+   });
+   ```
+
+5. Run `ng serve`, open `/products`, and inspect Console.
+6. Expected result: the interceptor logs `Not found`, followed by `Component received rethrown error`. This proves `throwError` passed the error onward.
+7. Remove `testMissingEndpoint()` and its temporary subscription.
+8. Refresh `/products` with the normal API. Confirm products still load without error-interceptor messages.
+
+Stop and explain why the auth interceptor is registered first to add the token, while the error interceptor observes failed responses and rethrows them to local handlers.
+
 ---
 
 # 87. Navigation Layout
@@ -3027,6 +4101,55 @@ Create a simple navigation bar:
 ```
 
 This turns your individual experiments into a real application.
+
+## Pause and Verify — Complete Application
+
+Files to check:
+
+```text
+src/app/app.ts
+src/app/app.routes.ts
+src/app/app.config.ts
+src/app/core/services/
+src/app/core/guards/
+src/app/core/interceptors/
+src/app/features/
+```
+
+### Before running
+
+1. In `app.ts`, confirm the root template contains `<router-outlet />`. If navigation is in `app.html`, confirm `app.ts` uses that template and imports `RouterOutlet` and `RouterLink` as required.
+2. In `app.routes.ts`, confirm routes exist for Login, Dashboard, Products, Product Details, Product Form and Users. Use each file's exact exported class name.
+3. Confirm protected routes contain `canActivate: [authGuard]`, while Login does not.
+4. In `app.config.ts`, confirm there is only one `provideHttpClient(...)` call and it registers both interceptors.
+5. Search the project for `Temporary`, `invalid-products`, `users-invalid`, `setValue("phone")`, and `testMissingEndpoint`. Remove all temporary experiment code.
+
+### End-to-end browser test
+
+1. Run `ng serve`.
+2. Clear Local Storage and open `/dashboard`. Expected: redirect to `/login`.
+3. Log in with `emilys` / `emilyspass`. Expected: token is stored and Dashboard opens.
+4. Navigate to Products. Expected: one products request loads the list.
+5. Search for `phone`. Expected: one debounced search request updates the list.
+6. Open `/products/1`. Expected: product details load.
+7. Open the product form. Expected: validation blocks invalid values and accepts valid values.
+8. Exercise one simulated add, update, or delete call and inspect its Network request.
+9. Refresh a protected page. Expected: the stored token allows the guard, and `/auth/me` can rebuild user state.
+10. Click Logout and try `/dashboard`. Expected: redirect to Login.
+11. Inspect Console for uncaught errors and Network for unexpected failed or duplicate requests.
+
+### Tests
+
+1. Stop `ng serve` with `Ctrl+C`.
+2. Run the test script defined in `package.json`, normally:
+
+```bash
+ng test
+```
+
+3. Confirm the AuthService test and generated component/service tests pass.
+
+If something fails, write down the exact route, action, Console message, Network status, and relevant file before continuing. Finally, explain one complete flow from user action to component, service, RxJS pipeline, interceptor, API response, state update and rendered UI.
 
 ---
 
@@ -3052,9 +4175,9 @@ src/app/
 |   |   +-- user.ts
 |   |
 |   +-- services/
-|       +-- auth.service.ts
+|       +-- auth.ts
 |       +-- product.service.ts
-|       +-- user.service.ts
+|       +-- user.ts
 |
 +-- features/
 |   |
