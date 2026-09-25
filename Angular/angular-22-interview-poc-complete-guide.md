@@ -705,7 +705,13 @@ For modern Angular applications, also learn the `async` pipe and signal-based ap
 
 # 16. Display Products
 
-In `product-list.ts`:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Replace the generated component class with:
 
 ```typescript
 import { Component, OnInit, inject } from "@angular/core";
@@ -733,7 +739,13 @@ export class ProductList implements OnInit {
 
 Angular 22's concise component naming generates the class as `ProductList`. Check the `export class ...` line in your generated file and use that exact class name in the route below.
 
-Template:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.html
+```
+
+Replace the generated template with:
 
 ```html
 <h2>Products</h2>
@@ -749,7 +761,13 @@ Template:
 </div>
 ```
 
-The generated welcome page can hide routed content. In `src/app/app.ts`, keep `RouterOutlet` in the component imports and replace `templateUrl` with this inline template:
+The generated welcome page can hide routed content. Open:
+
+```text
+src/app/app.ts
+```
+
+Keep `RouterOutlet` in the component imports and keep the external `app.html` template:
 
 ```typescript
 import { Component } from "@angular/core";
@@ -759,12 +777,30 @@ import { RouterOutlet } from "@angular/router";
   imports: [RouterOutlet],
   selector: "app-root",
   styleUrl: "./app.css",
-  template: "<router-outlet />",
+  templateUrl: "./app.html",
 })
 export class App {}
 ```
 
-Before running the application, open `src/app/app.routes.ts` and add a temporary route for the product list:
+Open:
+
+```text
+src/app/app.html
+```
+
+Replace the generated welcome markup with:
+
+```html
+<router-outlet />
+```
+
+Before running the application, open:
+
+```text
+src/app/app.routes.ts
+```
+
+Add a temporary route for the product list:
 
 ```typescript
 import { Routes } from "@angular/router";
@@ -881,7 +917,13 @@ ngOnDestroy() {
 
 # 18. Exercise — Prove Lifecycle Hooks
 
-Add:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Add these methods inside the `ProductList` class:
 
 ```typescript
 ngOnInit() {
@@ -1336,6 +1378,14 @@ In a real application, you may instead rethrow the error or convert it to a doma
 
 # 25. Add Error Handling
 
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Update the RxJS import and replace the existing `getProducts()` method with:
+
 ```typescript
 import { catchError, map, of, tap } from 'rxjs';
 
@@ -1355,13 +1405,19 @@ getProducts(): Observable<Product[]> {
 
 # 26. Add Loading State
 
-In the component:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Add this property inside the `ProductList` class:
 
 ```typescript
 loading = false;
 ```
 
-Then:
+In the same file, place this request code inside `ngOnInit()`:
 
 ```typescript
 this.loading = true;
@@ -1378,7 +1434,13 @@ this.productService.getProducts().subscribe({
 });
 ```
 
-Template:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.html
+```
+
+Add this loading message before the product list:
 
 ```html
 @if (loading) {
@@ -1400,7 +1462,13 @@ DummyJSON supports:
 GET /products/search?q=phone
 ```
 
-Add this to your service:
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Add this method inside the `ProductService` class:
 
 ```typescript
 searchProducts(term: string): Observable<Product[]> {
@@ -1541,19 +1609,25 @@ This is particularly useful for larger forms, dynamic forms, complex validation 
 
 # 29. Add Reactive Forms Imports
 
-In the standalone component:
+Open:
+
+```text
+src/app/features/products/product-form/product-form.ts
+```
+
+Add this import at the top of the file:
 
 ```typescript
 import { FormBuilder, ReactiveFormsModule, Validators } from "@angular/forms";
 ```
 
-Add:
+Add `ReactiveFormsModule` to the component's existing `imports` array:
 
 ```typescript
 imports: [ReactiveFormsModule];
 ```
 
-Then:
+Then add this field inside the `ProductForm` class:
 
 ```typescript
 private fb = inject(FormBuilder);
@@ -1562,6 +1636,14 @@ private fb = inject(FormBuilder);
 ---
 
 # 30. Create Product Form
+
+Open:
+
+```text
+src/app/features/products/product-form/product-form.ts
+```
+
+Add this form model inside the `ProductForm` class:
 
 ```typescript
 productForm = this.fb.group({
@@ -1572,7 +1654,13 @@ productForm = this.fb.group({
 });
 ```
 
-Template:
+Open:
+
+```text
+src/app/features/products/product-form/product-form.html
+```
+
+Replace the generated template with:
 
 ```html
 <form [formGroup]="productForm" (ngSubmit)="save()">
@@ -1601,6 +1689,14 @@ Template:
 
 # 31. Submit Reactive Form
 
+Open:
+
+```text
+src/app/features/products/product-form/product-form.ts
+```
+
+Add this method inside the `ProductForm` class:
+
 ```typescript
 save(): void {
   if (this.productForm.invalid) {
@@ -1628,7 +1724,13 @@ ReactiveFormsModule
 
 Reactive Forms expose an Observable called `valueChanges`.
 
-Example:
+Open:
+
+```text
+src/app/features/products/product-form/product-form.ts
+```
+
+Add this subscription inside `ngOnInit()`:
 
 ```typescript
 this.productForm.controls.title.valueChanges.subscribe((value) => {
@@ -1642,7 +1744,14 @@ This is an excellent way to connect Forms with RxJS.
 
 # 33. Template-Driven Forms
 
-Create a tiny contact form or login form using:
+For this separate practice example, open:
+
+```text
+src/app/features/login/login.ts
+src/app/features/login/login.html
+```
+
+In `login.ts`, import `FormsModule` from `@angular/forms`, add it to the component's `imports` array, and add a `username = "";` property. Then place this form in `login.html`:
 
 ```html
 <form #loginForm="ngForm">
@@ -1733,6 +1842,8 @@ The template-driven example requires `FormsModule` and a separate template. Do n
 Stop and explain: the reactive form model and validators are declared in TypeScript, while a template-driven form is mainly configured in HTML.
 
 ---
+
+Continue
 
 # 35. Subject
 
@@ -2011,7 +2122,13 @@ Run:
 ng g interceptor core/interceptors/auth
 ```
 
-Use a functional interceptor:
+Open the generated file:
+
+```text
+src/app/core/interceptors/auth.interceptor.ts
+```
+
+Replace its contents with this functional interceptor:
 
 ```typescript
 import { HttpInterceptorFn } from "@angular/common/http";
@@ -2096,7 +2213,13 @@ ng g guard core/guards/auth
 
 Choose functional guard if prompted.
 
-Example:
+Open the generated file:
+
+```text
+src/app/core/guards/auth.guard.ts
+```
+
+Replace its contents with:
 
 ```typescript
 import { inject } from "@angular/core";
@@ -2119,7 +2242,13 @@ export const authGuard: CanActivateFn = () => {
 
 # 43. Routing
 
-Your route configuration can look conceptually like:
+Open:
+
+```text
+src/app/app.routes.ts
+```
+
+Update the existing `routes` array. Keep routes you already added and use this as the target structure:
 
 ```typescript
 export const routes: Routes = [
@@ -2163,7 +2292,13 @@ The exact generated filenames may differ depending on your CLI's naming style. A
 
 Lazy loading means a feature is loaded when it is needed rather than loading everything at initial startup.
 
-Example:
+This route belongs in:
+
+```text
+src/app/app.routes.ts
+```
+
+The `loadComponent` property performs the lazy import:
 
 ```typescript
 {
@@ -2194,9 +2329,13 @@ This can reduce initial JavaScript work for larger applications.
 
 # 45. Login Component
 
-Use Reactive Forms.
+Use Reactive Forms. Open:
 
-Fields:
+```text
+src/app/features/login/login.ts
+```
+
+Add `ReactiveFormsModule` to the component's `imports` array, inject `FormBuilder`, `AuthService`, and `Router`, and add these fields inside the generated login class:
 
 ```text
 username
@@ -2212,7 +2351,7 @@ loginForm = this.fb.group({
 });
 ```
 
-On submit:
+In the same `login.ts` class, add:
 
 ```typescript
 login(): void {
@@ -2234,6 +2373,26 @@ login(): void {
       }
     });
 }
+```
+
+Open:
+
+```text
+src/app/features/login/login.html
+```
+
+Replace the generated template with a form that calls the TypeScript method:
+
+```html
+<form [formGroup]="loginForm" (ngSubmit)="login()">
+  <label for="username">Username</label>
+  <input id="username" formControlName="username" />
+
+  <label for="password">Password</label>
+  <input id="password" type="password" formControlName="password" />
+
+  <button type="submit" [disabled]="loginForm.invalid">Login</button>
+</form>
 ```
 
 ## Pause and Verify — Login, Guard, Routing and Lazy Loading
@@ -2330,13 +2489,19 @@ Interview answer:
 
 # 47. Search Box with `debounceTime`
 
-Add:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Import `FormControl` from `@angular/forms`, then add this field inside `ProductList`:
 
 ```typescript
 searchControl = new FormControl("");
 ```
 
-Then:
+In the same file, add this pipeline inside `ngOnInit()`:
 
 ```typescript
 ngOnInit(): void {
@@ -2440,7 +2605,13 @@ This is useful with search inputs and filters.
 
 # 50. Complete Search Pipeline
 
-Your final search pipeline:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Replace the earlier search subscription inside `ngOnInit()` with this final pipeline:
 
 ```typescript
 this.searchControl.valueChanges
@@ -2576,14 +2747,20 @@ Do NOT use `mergeMap` blindly for search, because old searches can remain active
 
 # 52. Practice `mergeMap`
 
-Create:
+Use this as temporary practice code in:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Add these imports at the top of the file:
 
 ```typescript
 import { from } from "rxjs";
 import { mergeMap } from "rxjs/operators";
 ```
 
-Conceptual example:
+Then add this temporary subscription at the end of `ngOnInit()`:
 
 ```typescript
 from([1, 2, 3])
@@ -2634,6 +2811,14 @@ Queued operations
 ---
 
 # 54. Practice `concatMap`
+
+Use this as temporary practice code in:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Import `concatMap` and add this subscription at the end of `ngOnInit()`:
 
 ```typescript
 from([1, 2, 3])
@@ -2734,6 +2919,12 @@ concatMap -> all operations must run in order
 
 # 56. `shareReplay`
 
+The runnable implementation belongs in the following file and is completed in section 57:
+
+```text
+src/app/core/services/product.service.ts
+```
+
 Suppose multiple components call:
 
 ```typescript
@@ -2769,6 +2960,14 @@ Be careful with caching. `shareReplay` is not a magic "cache forever" button; it
 ---
 
 # 57. Use `shareReplay` in Product Service
+
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Import `shareReplay` from `rxjs`, then replace the current `getProducts()` implementation and add the private field inside `ProductService`:
 
 ```typescript
 private products$?: Observable<Product[]>;
@@ -2826,6 +3025,12 @@ Do not remove the `shareReplay` implementation. Stop and explain that it shares/
 
 Signals are Angular's reactive state primitive.
 
+Practice the TypeScript snippets in this component after generating it in section 63:
+
+```text
+src/app/features/products/product-card/product-card.ts
+```
+
 A signal stores a value:
 
 ```typescript
@@ -2850,7 +3055,11 @@ Increment:
 count.update((value) => value + 1);
 ```
 
-Template:
+Place the matching template expression in:
+
+```text
+src/app/features/products/product-card/product-card.html
+```
 
 ```html
 <p>{{ count() }}</p>
@@ -2874,6 +3083,12 @@ UI updates
 
 A computed signal derives a value from other signals.
 
+Practice the signal fields in:
+
+```text
+src/app/features/products/product-card/product-card.ts
+```
+
 Example:
 
 ```typescript
@@ -2883,7 +3098,11 @@ quantity = signal(2);
 total = computed(() => this.price() * this.quantity());
 ```
 
-Template:
+Place the matching template expression in:
+
+```text
+src/app/features/products/product-card/product-card.html
+```
 
 ```html
 <p>Total: {{ total() }}</p>
@@ -2898,6 +3117,12 @@ When `price` or `quantity` changes, Angular recomputes it.
 # 60. `effect()`
 
 An effect runs side-effect code when signals it reads change.
+
+Practice this inside the generated product-card class constructor in:
+
+```text
+src/app/features/products/product-card/product-card.ts
+```
 
 Example:
 
@@ -2926,31 +3151,43 @@ effect()
 
 # 61. Add Signal-Based Loading
 
-Instead of:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Replace the existing Boolean loading field:
 
 ```typescript
 loading = false;
 ```
 
-try:
+with a signal field:
 
 ```typescript
 loading = signal(false);
 ```
 
-Before request:
+In `ngOnInit()`, set it before starting the request:
 
 ```typescript
 this.loading.set(true);
 ```
 
-After response:
+Set it to false when the request terminates. Section 77 later moves this into `finalize()`:
 
 ```typescript
 this.loading.set(false);
 ```
 
-Template:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.html
+```
+
+Replace checks of `loading` with a signal read:
 
 ```html
 @if (loading()) {
@@ -2990,7 +3227,13 @@ Create a child component:
 ProductCardComponent
 ```
 
-Use:
+Open:
+
+```text
+src/app/features/products/product-card/product-card.ts
+```
+
+Import `ChangeDetectionStrategy` from `@angular/core` and add this property to the generated `@Component` metadata:
 
 ```typescript
 changeDetection: ChangeDetectionStrategy.OnPush;
@@ -3020,6 +3263,12 @@ Angular's official documentation states that zoneless change detection is the de
 
 Therefore, for Angular 22 you normally do not need to add a special provider just to turn zoneless on.
 
+Check this file when reviewing change-detection providers:
+
+```text
+src/app/app.config.ts
+```
+
 Do NOT blindly add:
 
 ```typescript
@@ -3038,7 +3287,13 @@ The important interview point is:
 
 # 65. Experiment with Zoneless
 
-Use a signal:
+Open:
+
+```text
+src/app/features/products/product-card/product-card.ts
+```
+
+Add this signal field and method inside the generated product-card class:
 
 ```typescript
 count = signal(0);
@@ -3048,7 +3303,13 @@ increment() {
 }
 ```
 
-Template:
+Open:
+
+```text
+src/app/features/products/product-card/product-card.html
+```
+
+Replace the generated template with:
 
 ```html
 <button (click)="increment()">Count: {{ count() }}</button>
@@ -3147,6 +3408,12 @@ You should practice three levels.
 
 ## Level 1 — Local component handling
 
+Edit inside `ngOnInit()` in:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
 ```typescript
 this.productService.getProducts().subscribe({
   next: (products) => {
@@ -3161,6 +3428,12 @@ this.productService.getProducts().subscribe({
 
 ## Level 2 — Service/RxJS handling
 
+Edit the `getProducts()` pipeline in:
+
+```text
+src/app/core/services/product.service.ts
+```
+
 ```typescript
 catchError((error) => {
   console.error(error);
@@ -3169,6 +3442,12 @@ catchError((error) => {
 ```
 
 ## Level 3 — HTTP interceptor
+
+Implement cross-cutting handling later in:
+
+```text
+src/app/core/interceptors/error.interceptor.ts
+```
 
 Use the interceptor for cross-cutting behavior such as:
 
@@ -3258,21 +3537,35 @@ Stop and explain: a component chooses the user-facing message, a service can pro
 Create:
 
 ```text
-/product/:id
+/products/:id
 ```
 
-Route:
+Open:
+
+```text
+src/app/app.routes.ts
+```
+
+Add this route to the existing `routes` array after more-specific routes such as `products/form`:
 
 ```typescript
 {
   path: 'products/:id',
   loadComponent: () =>
     import('./features/products/product-details/product-details')
-      .then(m => m.ProductDetailsComponent)
+    .then(m => m.ProductDetails)
 }
 ```
 
-In the component:
+If your generated file exports a different class name, use the exact name from its `export class` line.
+
+Open:
+
+```text
+src/app/features/products/product-details/product-details.ts
+```
+
+Add these fields and lifecycle code inside the generated product-details class:
 
 ```typescript
 private route = inject(ActivatedRoute);
@@ -3331,7 +3624,13 @@ DummyJSON supports:
 POST /products/add
 ```
 
-Service:
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Add this method inside `ProductService`:
 
 ```typescript
 addProduct(product: Partial<Product>): Observable<Product> {
@@ -3342,7 +3641,13 @@ addProduct(product: Partial<Product>): Observable<Product> {
 }
 ```
 
-Call:
+To call it from the form, open:
+
+```text
+src/app/features/products/product-form/product-form.ts
+```
+
+Place this call inside the valid branch of `save()`:
 
 ```typescript
 this.productService.addProduct({
@@ -3359,6 +3664,14 @@ DummyJSON simulates the operation. It returns a created product, but it does not
 
 # 71. Product Update
 
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Add this method inside `ProductService`:
+
 ```typescript
 updateProduct(
   id: number,
@@ -3374,6 +3687,14 @@ updateProduct(
 ---
 
 # 72. Product Delete
+
+Open:
+
+```text
+src/app/core/services/product.service.ts
+```
+
+Add this method inside `ProductService`:
 
 ```typescript
 deleteProduct(id: number): Observable<Product> {
@@ -3457,7 +3778,13 @@ Expected result: DummyJSON returns simulated success responses, but a fresh GET 
 
 # 73. Practice `map()` with Real Data
 
-Create:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Import RxJS `map`, then add this practice stream inside `ProductList`:
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
@@ -3486,6 +3813,14 @@ The inner `.map()` transforms elements of the array.
 
 # 74. Practice `filter()` with Real Data
 
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Replace the section 73 practice stream with:
+
 ```typescript
 products$ = this.productService
   .getProducts()
@@ -3497,6 +3832,14 @@ Now only products with stock remain.
 ---
 
 # 75. Practice `tap()` for Debugging
+
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Replace the previous practice stream with this version and import `tap` from `rxjs`:
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
@@ -3512,7 +3855,13 @@ This gives you a practical debugging example.
 
 # 76. Practice `catchError()` Correctly
 
-Example:
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Add `catchError` to the practice stream and import `catchError` and `of` from `rxjs`:
 
 ```typescript
 products$ = this.productService.getProducts().pipe(
@@ -3535,6 +3884,14 @@ Remember:
 # 77. Better Loading Management
 
 Use `finalize()`.
+
+Open:
+
+```text
+src/app/features/products/product-list/product-list.ts
+```
+
+Import `finalize` from `rxjs`, then replace the existing product-loading subscription inside `ngOnInit()` with:
 
 ```typescript
 this.loading.set(true);
@@ -3639,6 +3996,14 @@ This gives you another opportunity to practice RxJS.
 
 Although not on your original list, learn this because it naturally appears when working with multiple HTTP calls.
 
+Open:
+
+```text
+src/app/features/dashboard/dashboard.ts
+```
+
+Import `forkJoin` from `rxjs`, inject `ProductService` and `UserService`, then add this inside `ngOnInit()`:
+
 ```typescript
 forkJoin({
   products: this.productService.getProducts(),
@@ -3673,7 +4038,13 @@ Generate:
 ng g s core/services/user
 ```
 
-Example:
+Open the generated file:
+
+```text
+src/app/core/services/user.ts
+```
+
+Add the required Angular, HTTP, RxJS, and user-model imports, then replace the generated class with:
 
 ```typescript
 @Injectable({
@@ -3837,7 +4208,13 @@ Authorization: Bearer <accessToken>
 
 This gives you practice with authenticated API calls.
 
-Service:
+Open:
+
+```text
+src/app/core/services/auth.ts
+```
+
+Add this method inside `AuthService`:
 
 ```typescript
 getCurrentUser(): Observable<LoginResponse> {
@@ -3853,7 +4230,13 @@ The interceptor should automatically add the token.
 
 # 83. Share Auth State
 
-Use:
+Open:
+
+```text
+src/app/core/services/auth.ts
+```
+
+Keep these fields inside `AuthService`:
 
 ```typescript
 private userSubject =
@@ -3862,7 +4245,13 @@ private userSubject =
 user$ = this.userSubject.asObservable();
 ```
 
-Navbar:
+For a navbar implemented in the root component, open:
+
+```text
+src/app/app.ts
+```
+
+Inject `AuthService`, then expose or subscribe to the public stream:
 
 ```typescript
 this.authService.user$.subscribe((user) => {
@@ -3870,7 +4259,13 @@ this.authService.user$.subscribe((user) => {
 });
 ```
 
-Better later:
+For the preferred `async` pipe version, open:
+
+```text
+src/app/app.html
+```
+
+Add this inside the navigation markup after importing `AsyncPipe` in `app.ts`:
 
 ```html
 @if (authService.user$ | async; as user) {
@@ -3973,7 +4368,13 @@ You can create a second interceptor:
 ng g interceptor core/interceptors/error
 ```
 
-Example:
+Open the generated file:
+
+```text
+src/app/core/interceptors/error.interceptor.ts
+```
+
+Add the required HTTP and RxJS imports, then replace its contents with:
 
 ```typescript
 export const errorInterceptor: HttpInterceptorFn = (req, next) => {
@@ -4001,7 +4402,13 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
 };
 ```
 
-Register it:
+Open:
+
+```text
+src/app/app.config.ts
+```
+
+Replace the existing `provideHttpClient(...)` entry with:
 
 ```typescript
 provideHttpClient(withInterceptors([authInterceptor, errorInterceptor]));
@@ -4087,7 +4494,43 @@ Stop and explain why the auth interceptor is registered first to add the token, 
 
 # 87. Navigation Layout
 
-Create a simple navigation bar:
+First open:
+
+```text
+src/app/app.ts
+```
+
+Update the root component imports and add the logout method:
+
+```typescript
+import { Component, inject } from "@angular/core";
+import { Router, RouterLink, RouterOutlet } from "@angular/router";
+import { AuthService } from "./core/services/auth";
+
+@Component({
+  selector: "app-root",
+  imports: [RouterLink, RouterOutlet],
+  templateUrl: "./app.html",
+  styleUrl: "./app.css",
+})
+export class App {
+  private authService = inject(AuthService);
+  private router = inject(Router);
+
+  logout(): void {
+    this.authService.logout();
+    this.router.navigate(["/login"]);
+  }
+}
+```
+
+Open:
+
+```text
+src/app/app.html
+```
+
+Replace the generated root template with this simple navigation layout:
 
 ```html
 <nav>
