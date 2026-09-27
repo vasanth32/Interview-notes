@@ -1,0 +1,630 @@
+LINQ INTERVIEW PRACTICE — C# / .NET
+====================================
+
+Purpose
+-------
+This is a standalone revision note for LINQ interview preparation.
+Use this file when preparing again after a few months.
+
+SOURCE
+------
+The practice problems below are based on the uploaded "KARAT Question Bank"
+(Skillset: Dotnet, Sep 2026). The question bank contains coding problems
+involving averages, grouping, filtering, ordering, and related collection
+operations. See the source around the coding-question sections and the
+Food Delivery, Clinic, and Online Gaming problems.
+
+
+1. LINQ MENTAL MODEL
+--------------------
+Think of LINQ as:
+
+SOURCE COLLECTION
+      ↓
+FILTER        -> Where
+TRANSFORM     -> Select
+FLATTEN       -> SelectMany
+GROUP         -> GroupBy
+SORT          -> OrderBy / ThenBy
+AGGREGATE     -> Count / Sum / Average / Min / Max
+PICK          -> First / FirstOrDefault / Single / SingleOrDefault
+CONVERT       -> ToList / ToDictionary / ToLookup
+
+
+2. MOST IMPORTANT OPERATORS
+---------------------------
+
+Where
+-----
+Filter items.
+
+var result = orders
+    .Where(o => o.Status == "DELIVERED")
+    .ToList();
+
+
+Select
+------
+Transform each item into another value/object.
+
+var ids = orders
+    .Select(o => o.OrderId)
+    .ToList();
+
+
+SelectMany
+----------
+Flatten nested collections.
+
+Example:
+Order 1 -> deliveries D1, D2
+Order 2 -> deliveries D3
+
+SelectMany produces:
+D1, D2, D3
+
+Pattern:
+
+var deliveries = orders
+    .SelectMany(order => order.Deliveries);
+
+
+GroupBy
+-------
+Create groups based on a key.
+
+var groups = orders
+    .GroupBy(o => o.RestaurantId);
+
+Each group contains:
+- Key
+- Items belonging to that key
+
+
+Average
+-------
+Calculate an average.
+
+var average = deliveries
+    .Average(d => d.Duration);
+
+
+Count
+-----
+Count matching items.
+
+var count = orders
+    .Count(o => o.Status == "DELIVERED");
+
+
+Sum
+---
+Add values.
+
+var total = orders
+    .Sum(o => o.OrderValue);
+
+
+OrderBy / OrderByDescending
+---------------------------
+Sort.
+
+var result = orders
+    .OrderByDescending(o => o.OrderValue)
+    .ToList();
+
+
+ThenBy
+------
+Secondary sorting.
+
+var result = players
+    .OrderByDescending(p => p.Score)
+    .ThenBy(p => p.PlayerId)
+    .ToList();
+
+
+ToDictionary
+------------
+Convert grouped/calculated data into a dictionary.
+
+var result = orders
+    .GroupBy(o => o.RestaurantId)
+    .ToDictionary(
+        g => g.Key,
+        g => g.Count()
+    );
+
+
+3. THE KEY INTERVIEW PATTERN
+----------------------------
+
+For questions like:
+
+"Calculate average X grouped by Y"
+
+Think immediately:
+
+    Source
+      -> GroupBy(Y)
+      -> ToDictionary / Select
+      -> Average(X)
+
+Generic pattern:
+
+var result = items
+    .GroupBy(x => x.GroupKey)
+    .ToDictionary(
+        g => g.Key,
+        g => g.Average(x => x.Value)
+    );
+
+
+4. SELECTMANY + GROUPBY + AVERAGE
+----------------------------------
+
+This is especially important for the Food Delivery practice.
+
+Business requirement:
+
+GetAverageDeliveryTimeByRestaurant()
+
+- One restaurant can have multiple orders.
+- One order can have multiple deliveries.
+- Count ALL deliveries for the restaurant.
+- Calculate average delivery duration.
+- Return:
+  Dictionary<int, double>
+  restaurantId -> averageDuration
+
+Source-derived requirement from the Karat question bank.
+
+Think:
+
+Orders
+  ↓
+SelectMany
+  ↓
+All deliveries
+  ↓
+GroupBy restaurant
+  ↓
+Average delivery duration
+  ↓
+Dictionary
+
+
+Generic solution shape:
+
+var result = orders
+    .SelectMany(order => order.Deliveries
+        .Select(delivery => new
+        {
+            RestaurantId = order.RestaurantId,
+            Duration = delivery.EndMinute - delivery.StartMinute
+        }))
+    .GroupBy(x => x.RestaurantId)
+    .ToDictionary(
+        g => g.Key,
+        g => g.Average(x => x.Duration)
+    );
+
+
+IMPORTANT:
+The SelectMany is required because deliveries are nested inside orders.
+
+If you group orders directly, you may accidentally calculate using orders
+instead of ALL individual deliveries.
+
+
+5. PRACTICE QUESTION — AVERAGE WORKOUT DURATION
+-----------------------------------------------
+
+Source-derived requirement:
+
+GetAverageWorkoutDurations()
+
+- Map member ID -> average workout duration.
+- Include ALL members.
+- If a member has no workouts, their value should be null.
+
+Core thinking:
+
+Member
+  -> Workouts
+  -> Duration
+  -> Average
+  -> MemberId
+
+
+LINQ skills:
+- SelectMany or nested collection projection
+- GroupBy
+- Average
+- ToDictionary
+- Handling empty groups / members with no data
+
+
+6. PRACTICE QUESTION — AVERAGE TRANSACTION AMOUNT
+--------------------------------------------------
+
+Source-derived requirement:
+
+GetAverageTransactionAmountByAccount()
+
+- Map accountId -> average transaction amount.
+- Include DEPOSIT and WITHDRAWAL transactions.
+- Amount is treated as an absolute value.
+- Accounts with no transactions are omitted.
+
+Think:
+
+transactions
+    -> GroupBy(AccountId)
+    -> Average(Math.Abs(Amount))
+    -> ToDictionary
+
+
+Generic pattern:
+
+var result = transactions
+    .GroupBy(t => t.AccountId)
+    .ToDictionary(
+        g => g.Key,
+        g => g.Average(t => Math.Abs(t.Amount))
+    );
+
+
+7. PRACTICE QUESTION — AVERAGE VISIT DURATION BY TYPE
+------------------------------------------------------
+
+Source-derived requirement:
+
+getAverageVisitDurationByType()
+
+- Filter by doctor.
+- Group visits by VisitType.
+- Calculate average duration for each type.
+- Only types with at least one visit appear.
+- If doctor has no visits, return an empty dictionary.
+
+Think:
+
+doctor visits
+    -> GroupBy(VisitType)
+    -> Average(Duration)
+    -> ToDictionary
+
+
+8. PRACTICE QUESTION — AVERAGE SCORE BY OUTCOME
+------------------------------------------------
+
+Source-derived requirement:
+
+GetAverageScoreByOutcome()
+
+- Filter match results for a player.
+- Group by outcome: WIN / LOSS / DRAW.
+- Calculate average score for each outcome.
+- Only outcomes that exist should appear.
+- No results -> empty dictionary.
+
+Think:
+
+player matches
+    -> GroupBy(Outcome)
+    -> Average(Score)
+    -> ToDictionary
+
+
+9. PRACTICE QUESTION — RECENT FORM
+----------------------------------
+
+Source-derived requirement:
+
+GetRecentForm(n)
+
+For each player:
+
+1. Take their recent n match results.
+2. Use timestamp ordering.
+3. Calculate points:
+   WIN  = 3
+   DRAW = 1
+   LOSS = 0
+4. Only include players with at least n results.
+5. Sort by FormPoints descending.
+6. PlayerId ascending is the tie-breaker.
+7. n <= 0 -> empty list.
+
+Important LINQ skills:
+
+Where
+GroupBy
+OrderBy / OrderByDescending
+Take
+Select
+Sum
+ThenBy
+
+
+10. INTERVIEW PATTERN: GROUP + CALCULATE
+----------------------------------------
+
+Whenever interviewer says:
+
+"per account"
+"per restaurant"
+"per customer"
+"per player"
+"per category"
+"per type"
+
+Immediately think:
+
+    GroupBy(key)
+
+
+Examples:
+
+Average per restaurant
+----------------------
+.GroupBy(x => x.RestaurantId)
+.Average(...)
+
+
+Count per customer
+------------------
+.GroupBy(x => x.CustomerId)
+.Count()
+
+
+Total amount per account
+------------------------
+.GroupBy(x => x.AccountId)
+.Sum(x => x.Amount)
+
+
+Maximum score per player
+------------------------
+.GroupBy(x => x.PlayerId)
+.Max(x => x.Score)
+
+
+11. INTERVIEW PATTERN: NESTED COLLECTION
+----------------------------------------
+
+If the data looks like:
+
+orders
+  -> deliveries
+  -> deliveries
+  -> deliveries
+
+and the question says:
+
+"consider every delivery"
+
+think:
+
+    SelectMany()
+
+NOT:
+
+    Select()
+
+
+Select gives:
+    collection of collections
+
+SelectMany gives:
+    one flat collection
+
+
+12. LINQ vs LOOP — INTERVIEW ANSWER
+-----------------------------------
+
+LINQ is useful when the operation is naturally expressed as:
+
+filter -> transform -> group -> aggregate
+
+A normal loop can sometimes be clearer when:
+- business rules are complicated
+- multiple state changes are required
+- debugging step-by-step is important
+- performance characteristics need explicit control
+
+Do not use LINQ just to make code shorter.
+The goal is readable and correct code.
+
+
+13. DEFERRED EXECUTION
+----------------------
+
+Many LINQ operators such as:
+
+Where
+Select
+SelectMany
+GroupBy
+
+are evaluated when the sequence is enumerated.
+
+Example:
+
+var query = orders.Where(o => o.IsActive);
+
+// Query has not necessarily executed yet.
+
+var result = query.ToList();
+
+// Enumeration happens here.
+
+
+ToList(), ToArray(), ToDictionary(), Count(), Average(), Sum(), etc.
+can force execution / materialization or enumeration.
+
+
+14. IEnumerable vs IQueryable
+-----------------------------
+
+IEnumerable
+-----------
+Usually works with objects already in memory.
+
+Example:
+List<Order> -> LINQ to Objects
+
+
+IQueryable
+----------
+Builds an expression that a provider can translate, commonly to SQL
+when using Entity Framework.
+
+Interview point:
+
+LINQ syntax can look similar, but the execution mechanism can be
+different.
+
+
+15. COMMON INTERVIEW TRAPS
+--------------------------
+
+TRAP 1:
+Using Select instead of SelectMany for nested collections.
+
+TRAP 2:
+Grouping the wrong level of the object hierarchy.
+
+TRAP 3:
+Forgetting that Average on an empty sequence can throw.
+
+TRAP 4:
+Returning only groups that have data when the requirement says ALL
+parent entities must be returned.
+
+TRAP 5:
+Forgetting a secondary sort using ThenBy.
+
+TRAP 6:
+Using First when FirstOrDefault is required.
+
+TRAP 7:
+Calling ToList too early and doing the remaining work in memory.
+
+TRAP 8:
+Writing complicated LINQ that is harder to understand than a loop.
+
+
+16. 10-MINUTE LINQ REVISION
+---------------------------
+
+Before an interview, practice these from memory:
+
+1. Filter orders by status -> Where
+2. Select IDs -> Select
+3. Flatten orders -> deliveries -> SelectMany
+4. Group by restaurant -> GroupBy
+5. Average delivery duration -> Average
+6. Count orders per customer -> GroupBy + Count
+7. Total sales per restaurant -> GroupBy + Sum
+8. Top 3 customers -> OrderByDescending + Take
+9. Recent player form -> GroupBy + OrderBy + Take + Sum
+10. Convert result to Dictionary -> ToDictionary
+
+
+17. MY RECALL CHECKLIST
+----------------------
+
+When seeing a LINQ coding question, ask:
+
+[ ] What is my source collection?
+[ ] Do I need Where?
+[ ] Do I need Select?
+[ ] Is the data nested -> SelectMany?
+[ ] Do I need grouping -> GroupBy?
+[ ] What is the grouping key?
+[ ] What calculation is needed -> Count/Sum/Average/Min/Max?
+[ ] Do I need sorting -> OrderBy/ThenBy?
+[ ] Do I need only top N -> Take?
+[ ] Do I need Dictionary -> ToDictionary?
+[ ] What happens if the collection is empty?
+[ ] Does the requirement include entities with no child records?
+[ ] Am I executing the query too early?
+
+
+18. PRACTICE ORDER FOR FUTURE INTERVIEW PREP
+--------------------------------------------
+
+Round 1:
+Where -> Select -> OrderBy -> Take
+
+Round 2:
+GroupBy -> Count -> Sum -> Average
+
+Round 3:
+SelectMany -> nested collections
+
+Round 4:
+GroupBy + Average + ToDictionary
+
+Round 5:
+Multiple operators in one problem
+
+Round 6:
+Business-rule problems where LINQ and normal loops can both work
+
+Final practice:
+Explain the LINQ solution OUT LOUD while coding.
+
+
+19. QUICK CHEAT SHEET
+---------------------
+
+Filter              -> Where
+Transform           -> Select
+Flatten             -> SelectMany
+Group               -> GroupBy
+Sort                -> OrderBy
+Second sort         -> ThenBy
+Take first N        -> Take
+Skip first N        -> Skip
+Count               -> Count
+Total               -> Sum
+Average             -> Average
+Minimum             -> Min
+Maximum             -> Max
+Any exists?         -> Any
+All match?          -> All
+First item          -> First / FirstOrDefault
+Single item         -> Single / SingleOrDefault
+Dictionary          -> ToDictionary
+List/materialize    -> ToList
+
+
+20. MOST IMPORTANT PATTERN TO REMEMBER
+---------------------------------------
+
+NESTED DATA + "PER X" + CALCULATION
+
+Usually becomes:
+
+    SelectMany(...)
+        -> GroupBy(...)
+        -> Average / Sum / Count
+        -> ToDictionary(...)
+
+Example:
+
+    orders
+      -> deliveries
+      -> Group by restaurant
+      -> average duration
+      -> Dictionary<restaurantId, average>
+
+
+END
+---
+When you come back months later, revise Sections 1, 3, 4, 10, 11,
+15, and 19 first, then solve the practice problems without looking
+at the solution shape.

@@ -1843,8 +1843,6 @@ Stop and explain: the reactive form model and validators are declared in TypeScr
 
 ---
 
-Continue
-
 # 35. Subject
 
 A `Subject` is both an Observable and an Observer.
@@ -2443,6 +2441,8 @@ protected navigation -> guard -> login -> API token
 ```
 
 ---
+
+Continue from here
 
 # 46. `switchMap`
 
